@@ -1,0 +1,6 @@
+#!/bin/sh
+
+curl -s http://patents.reedtech.com/pgrbft.php | grep 'GrantRedBookText.*zip' | \
+    sed -e 's@.*downloads@http://patents.reedtech.com/downloads@' -e 's@zip".*@zip@' | \
+    while read url; do wget $url; done
+
