@@ -1,4 +1,4 @@
-package patentdata;
+package patentdata.utils;
 
 import java.io.File;
 import java.io.InputStream;
@@ -10,12 +10,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.Header;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
@@ -29,7 +32,7 @@ import org.apache.http.params.BasicHttpParams;
 import org.apache.http.params.HttpParams;
 import org.json.JSONObject;
 
-import patentdata.Config.ConfigInfo;
+import patentdata.utils.Config.ConfigInfo;
 
 @SuppressWarnings("deprecation")
 public class PatentData {
@@ -38,10 +41,21 @@ public class PatentData {
 	private Config config = null;
 	private ConfigInfo configInfo = null;
 
+	private Log log = new Log();
+	private File folderQuota = null;
+
 	private void initial() throws Exception {
 		try {
 			config = new Config(common.getConfigPath());
 			configInfo = config._config;
+
+			folderQuota = new File(configInfo.WorkingDir, "quota");
+			try {
+				if (!folderQuota.exists())
+					folderQuota.mkdirs();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
 		} catch (Exception e) {
 			throw new Exception("initial failed. " + e.getMessage());
 		}
@@ -211,8 +225,7 @@ public class PatentData {
 	public String formatDate(Date date, String pattern) throws Exception {
 		if (null == date)
 			return "";
-		SimpleDateFormat formatter = new SimpleDateFormat(pattern);
-		return formatter.format(date);
+		return new SimpleDateFormat(pattern).format(date);
 	}
 
 	public String formatRange(Integer rangeBegin, Integer rangeEnd) throws Exception {
@@ -251,6 +264,11 @@ public class PatentData {
 		if (output.contains("<message>invalid_access_token</message>")) {
 			getToken();
 			output = toString(goTo(url.toString()).getEntity().getContent());
+		} else if (output.contains("<code>CLIENT.RobotDetected</code>")) {
+			Integer n = 3;
+			String message = String.format("CLIENT.RobotDetected. Wait %d seconds to reconnect...", n);
+			TimeUnit.SECONDS.sleep(n);
+			return getContent(url);
 		}
 		return output;
 	}
@@ -272,6 +290,7 @@ public class PatentData {
 			e.printStackTrace();
 			throw e;
 		}
+		logQuota(httpResponse);
 		return httpResponse;
 	}
 
@@ -308,6 +327,34 @@ public class PatentData {
 			e.printStackTrace();
 			throw e;
 		}
+	}
+
+	private void logQuota(HttpResponse httpResponse) throws Exception {
+		Header[] headers = httpResponse.getAllHeaders();
+		for (Header header : headers) {
+			if ("X-IndividualQuotaPerHour-Used".equalsIgnoreCase(header.getName())
+					|| "X-RegisteredQuotaPerWeek-Used".equalsIgnoreCase(header.getName())) {
+				writeLogQuota(
+						humanReadableByteCountBin(Long.parseLong(header.getValue())) + " (" + header.getValue() + ")",
+						header.getName());
+			}
+		}
+	}
+
+	public String humanReadableByteCountBin(long bytes) {
+		long b = bytes == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(bytes);
+		return b < 1024L ? bytes + " B"
+				: b <= 0xfffccccccccccccL >> 40 ? String.format("%.1f KiB", bytes / 0x1p10)
+						: b <= 0xfffccccccccccccL >> 30 ? String.format("%.1f MiB", bytes / 0x1p20)
+								: b <= 0xfffccccccccccccL >> 20 ? String.format("%.1f GiB", bytes / 0x1p30)
+										: b <= 0xfffccccccccccccL >> 10 ? String.format("%.1f TiB", bytes / 0x1p40)
+												: b <= 0xfffccccccccccccL
+														? String.format("%.1f PiB", (bytes >> 10) / 0x1p40)
+														: String.format("%.1f EiB", (bytes >> 20) / 0x1p40);
+	}
+
+	private void writeLogQuota(String message, String prefix) throws Exception {
+		log.write(message, prefix, folderQuota);
 	}
 
 }

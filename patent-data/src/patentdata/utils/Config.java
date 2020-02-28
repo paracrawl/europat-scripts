@@ -1,4 +1,4 @@
-package patentdata;
+package patentdata.utils;
 
 import org.json.JSONObject;
 
