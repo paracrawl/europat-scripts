@@ -4,15 +4,17 @@ import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
+import org.apache.commons.lang3.StringUtils;
+
 public class Log {
 
 	private Common common = new Common();
 
 	private File folderLog = null;
 
-	public Log() throws Exception {
+	public Log(String path) throws Exception {
 		try {
-			folderLog = new File(new Config(common.getConfigPath())._config.WorkingDir, "logs");
+			folderLog = new File(path, "logs");
 			try {
 				if (!folderLog.exists())
 					folderLog.mkdirs();
@@ -38,11 +40,13 @@ public class Log {
 
 	public void print(String message, String prefix, File folder) throws Exception {
 		System.out.println(message);
-		write(message, prefix + "_", folder);
+		write(message, prefix, folder);
 	}
 
 	public void write(String message, String prefix, File folder) throws Exception {
-		common.WriteFile(new File(folder, prefix + getNow("yyyyMMdd") + ".log").toString(),
+		common.WriteFile(
+				new File(folder, prefix + (StringUtils.isEmpty(prefix) ? "" : "_") + getNow("yyyyMMddHH") + ".log")
+						.toString(),
 				getLogMessage(message), true);
 	}
 

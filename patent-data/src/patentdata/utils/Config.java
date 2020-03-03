@@ -38,6 +38,8 @@ public class Config {
 		_config.ServiceURL = _config.Protocol + "://" + _config.Host + "/" + common.getJSONValue(json, "ServiceURL");
 		_config.WorkingDir = common.getJSONValue(json, "WorkingDir");
 		_config.AccessToken = common.getJSONValue(json, "AccessToken");
+		_config.Jdbc = common.getJSONValue(json, "Jdbc");
+		_config.DbDriver = common.getJSONValue(json, "DbDriver");
 		_config.DbHost = common.getJSONValue(json, "DbHost");
 		_config.DbPort = common.getJSONValue(json, "DbPort");
 		_config.DbSchema = common.getJSONValue(json, "DbSchema");
@@ -68,6 +70,8 @@ public class Config {
 		public String AccessToken = "";
 		public String ServiceURL = "";
 		public String WorkingDir = "";
+		public String DbDriver = "";
+		public String Jdbc = "";
 		public String DbHost = "";
 		public String DbPort = "";
 		public String DbSchema = "";

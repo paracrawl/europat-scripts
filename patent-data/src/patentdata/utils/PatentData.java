@@ -10,7 +10,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -37,32 +36,25 @@ import patentdata.utils.Config.ConfigInfo;
 @SuppressWarnings("deprecation")
 public class PatentData {
 
-	private Common common = new Common();
-	private Config config = null;
-	private ConfigInfo configInfo = null;
+	protected Common common = new Common();
+	protected Config config = null;
+	protected ConfigInfo configInfo = null;
 
-	private Log log = new Log();
-	private File folderQuota = null;
+	protected Log log = null;
+	protected File folderQuota = null;
 
-	private void initial() throws Exception {
+	private void initial(String path) throws Exception {
 		try {
-			config = new Config(common.getConfigPath());
-			configInfo = config._config;
-
-			folderQuota = new File(configInfo.WorkingDir, "quota");
-			try {
-				if (!folderQuota.exists())
-					folderQuota.mkdirs();
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
 		} catch (Exception e) {
 			throw new Exception("initial failed. " + e.getMessage());
 		}
 	}
 
 	public PatentData() throws Exception {
-		initial();
+	}
+
+	public PatentData(String path) throws Exception {
+		initial(path);
 	}
 
 	public String SearchPatentsByDate(String service, String[] constituents, String datePattern, Date dateBegin,

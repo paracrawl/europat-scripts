@@ -454,7 +454,7 @@ public class Common {
 	}
 
 	public String getConfigPath() {
-		return combine(getJarPath(), "patent-data.json");
+		return combine(getJarPath(), "patent.json");
 	}
 
 	public String replaceText(HashMap<String, String> hash, String text) {

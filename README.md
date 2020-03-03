@@ -7,91 +7,150 @@ ___
 
 ## `patent-data`
 java project for implement tool to retrieve patent data
-  
-## `patent-data-libs`
-java libraries build from patent-data project to retrieve patent data
 
-1. `patent-search.jar`
+## Using `patent.jar`
+Patent-data can be used as a command line tool in 4 different methods.
+   
+```
+
+java -jar patent.jar --help
+
+------------------------
+Select method: -search or -extractid or -getfamily or -getpair (Required)
+------------------------
+
+```
+
+   
+**1. Search Patent**
 
    *Usage*
-   
+
    ```
-   java -jar patent-search.jar <yyyyMM>
+
+   java -jar patent.jar -search [--help] <yyyyMM> -C <config_file>
+
+   ------------------------
+   Parameters
+   ------------------------
+   1. <Date> (Required): Date to search patents (YYYYMMDD)
+   2. -C <ConfigPath> (Optional): JSON configuration file.
+   ------------------------
+   Example
+   ------------------------
+   java -jar patent.jar -search "20191231" -C "config/path/patent.json"
+   ------------------------
+
    ```
-  
-   *Parameters*
-  
-   - `<yyyyMM>` specifies the year and month to search patent data
 
    *Description*
 
-   - Call the OPS API to get all patents published within a month
-   - Data will be save into `WorkingDir`/search/
+   - Call the OPS API to get all patents published within a date
+   - Data will be save into directory `WorkingDir`/search/
 
-2. `patent-extractids.jar`
+
+
+
+**2. Extract Document Id**
 
    *Usage*
    
    ```
-   java -jar patent-extractids.jar -I <input_dir> -O <output_dir>
+   
+   java -jar patent.jar -extractid [--help] -I <input_dir> -O <output_dir> -C <config_file>
+   
+   ------------------------
+   Parameters
+   ------------------------
+   1. -I <InputDir> (Required): Input folder
+   2. -O <OutputDir> (Required): Output folder
+   3. -C <ConfigPath> (Optional): JSON configuration file
+   ------------------------
+   Example
+   ------------------------
+   java -jar patent.jar -extractid -I "input/directory" -O "output/directory" -C "config/path/patent.json"
+   ------------------------
+
    ```
   
-   *Parameters*
-  
-   - `<input_dir>` specifies the directory path to the source file process for extraction
-   - `<output_dir>` specifies the directory path to the output file process after extraction
-
    *Description*
 
    - Lookup xml file into `<input_dir>`
-   - Get the document id from xml and save to `<output_dir>` 
+   - Get the document id from xml and save to directory `<output_dir>`
 
-3. `patent-getfamily.jar`
+
+
+
+**3. Get Family Data**
 
    *Usage*
    
    ```
-   java -jar patent-getfamily.jar -I <input_path> -D <document_id>
+   java -jar patent.jar -getfamily [--help] -I <input_path> -D <document_id> -C <config_file>
+   
+   ------------------------
+   Parameters
+   ------------------------
+   1. -I <InputPath> or -D <DocId> (Required): Input file path or folder (TXT only) or Document Id (CountryCode.DocNo.KindCode)
+   2. -C <ConfigPath> (Optional): Config path
+   ------------------------
+   Example
+   ------------------------
+   java -jar patent.jar -getfamily -I "input/path/ids_201912.txt" -C "config/path/patent.json"
+   java -jar patent.jar -getfamily -D "JP.H07196059.A" -C "config/path/patent.json"
+   ------------------------
+   
    ```
   
-   *Parameters*
-  
-   - `<input_path>` specifies the directory or file path to the source ids file to get patent family
-   - or
-   - `<document_id>` specifies the directory id to get patent family
-   
-   
-   > Input file path or folder (txt only) or Document Id (CountryCode.DocNo.KindCode)
-
    *Description*
    
    - Get the family data for each ID
    - Extract and store the family data in a database in an easy to query format
 
-4. `patent-getpair.jar`
+
+
+
+**4. Get Patent Pair Data**
 
    *Usage*
    
    ```
-   java -jar patent-getpair.jar <source_country> <target_country> -O <output_path>
+   
+   java -jar patent.jar -getpair [--help] <source_country> <target_country> -O <output_path> -C <config_file>
+   
+   ------------------------
+   Parameters
+   ------------------------
+   1. <SourceCountry> (Required): Source Country
+   2. <TargetCountry> (Required): Target Country
+   3. -O <OutputPath> (Required): Output file path (TXT only)
+   4. -C <ConfigPath> (Optional): Config path
+   ------------------------
+   Example
+   ------------------------
+   java -jar patent.jar -getpair "TW" "US" -O "input/path/pair_result.txt" -C "config/path/conf.json"
+   ------------------------
+   
    ```
   
-   *Parameters*
-  
-   - `<source_country>` specifies the source country to get pair data
-   - `<target_country>` specifies the target country to get pair data
-   - `<output_path>` specifies the path to the output file (txt only)
-   
    *Description*
 
+
    - Query based on language pair
-
-  > Note - you cannot get the language of the document from the family, only the location. You have to pull the document to get the actual language.
   
-  
-## patent-data.json
 
-patent-data configuration file, put it into the patent-data installation path beside .jar file.
+> If JSON configuration is not specified, then the file `patent.json` in the same folder as the `patent.jar` file will be used.
+
+> Note - you cannot get the language of the document from the family, only the location. You have to pull the document to get the actual language.
+ 
+ 
+ 
+  
+## patent.json
+
+patent configuration 
+ile, put it into the patent-data installation path b
+side .jar file.
 
 ```
 {
@@ -101,13 +160,16 @@ patent-data configuration file, put it into the patent-data installation path be
 	"Host": "ops.epo.org",
 	"AuthenURL": "/3.2/auth/accesstoken",
 	"ServiceURL": "/3.2/rest-services/",
-	"WorkingDir": "/work/",
+	"WorkingDir": "/work",
+	"DbDriver": "org.mariadb.jdbc.Driver",
+	"Jdbc": "jdbc:mariadb",
 	"DbHost": "localhost",
 	"DbPort": "3306",
 	"DbSchema": "patent",
 	"DbUser": "",
 	"DbPassword": ""
 }
+
 ```
 
 - `ConsumerKey`  specifies the consumer key
@@ -117,6 +179,8 @@ patent-data configuration file, put it into the patent-data installation path be
 - `AuthenURL`  specifies the authen url used for api
 - `ServiceURL`  specifies the service url used for api
 - `WorkingDir`  specifies the working directory for the process
+- `DbDriver`  specifies the database driver
+- `Jdbc`  specifies the database vendor
 - `DbHost`  specifies the database host
 - `DbPort`  specifies the database port
 - `DbSchema`  specifies the database schema
@@ -124,7 +188,7 @@ patent-data configuration file, put it into the patent-data installation path be
 - `DbPassword`  specifies the database password
 
 
-## patent-header.sql
+## patent_docno.sql
 
-database script to create patent_header table 
+database script to create patent_docno table 
 
