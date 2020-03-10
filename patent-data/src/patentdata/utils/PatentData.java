@@ -41,7 +41,6 @@ public class PatentData {
 	protected ConfigInfo configInfo = null;
 
 	protected Log log = null;
-	protected File folderQuota = null;
 
 	private void initial(String path) throws Exception {
 		try {
@@ -57,8 +56,8 @@ public class PatentData {
 		initial(path);
 	}
 
-	public String SearchPatentsByDate(String service, String[] constituents, String datePattern, Date dateBegin,
-			Date dateEnd, Integer rangeBegin, Integer rangeEnd) throws Exception {
+	public String SearchPatents(String service, String[] constituents, String datePattern, Date dateBegin, Date dateEnd,
+			Integer rangeBegin, Integer rangeEnd, String countryCode) throws Exception {
 		StringBuilder sbLink = new StringBuilder(configInfo.ServiceURL).append("/").append(service).append("/search");
 		if (null != constituents)
 			sbLink.append("/").append(String.join(",", constituents));
@@ -66,6 +65,8 @@ public class PatentData {
 		StringBuilder sbCql = new StringBuilder().append("pd=\"").append(formatDate(dateBegin, datePattern))
 				.append((null != dateBegin && null != dateEnd ? ":" : "")).append(formatDate(dateEnd, datePattern))
 				.append("\"");
+		if (!StringUtils.isEmpty(countryCode))
+			sbCql.append(" ").append(countryCode);
 
 		sbCql = new StringBuilder(URLEncoder.encode(sbCql.toString(), StandardCharsets.UTF_8.toString()))
 				.append(formatRange(rangeBegin, rangeEnd, "&Range="));
@@ -252,15 +253,19 @@ public class PatentData {
 	}
 
 	private String getContent(URL url) throws Exception {
-		String output = toString(goTo(url.toString()).getEntity().getContent());
-		if (output.contains("<message>invalid_access_token</message>")) {
-			getToken();
-			output = toString(goTo(url.toString()).getEntity().getContent());
-		} else if (output.contains("<code>CLIENT.RobotDetected</code>")) {
-			Integer n = 3;
-			String message = String.format("CLIENT.RobotDetected. Wait %d seconds to reconnect...", n);
-			TimeUnit.SECONDS.sleep(n);
-			return getContent(url);
+		HttpResponse httpResponse = goTo(url.toString());
+		String output = toString(httpResponse.getEntity().getContent());
+		if (HttpStatus.SC_OK != httpResponse.getStatusLine().getStatusCode()) {
+			log.printErr(new StringBuilder(url.toString()).append("\n").append(output).toString());
+			if (output.contains("<message>invalid_access_token</message>")) {
+				getToken();
+				output = toString(goTo(url.toString()).getEntity().getContent());
+			} else if (output.contains("<code>CLIENT.RobotDetected</code>")) {
+				Integer n = 3;
+				log.print(String.format("CLIENT.RobotDetected. Wait %d seconds to reconnect...", n));
+				TimeUnit.SECONDS.sleep(n);
+				return getContent(url);
+			}
 		}
 		return output;
 	}
@@ -282,7 +287,6 @@ public class PatentData {
 			e.printStackTrace();
 			throw e;
 		}
-		logQuota(httpResponse);
 		return httpResponse;
 	}
 
@@ -319,34 +323,6 @@ public class PatentData {
 			e.printStackTrace();
 			throw e;
 		}
-	}
-
-	private void logQuota(HttpResponse httpResponse) throws Exception {
-		Header[] headers = httpResponse.getAllHeaders();
-		for (Header header : headers) {
-			if ("X-IndividualQuotaPerHour-Used".equalsIgnoreCase(header.getName())
-					|| "X-RegisteredQuotaPerWeek-Used".equalsIgnoreCase(header.getName())) {
-				writeLogQuota(
-						humanReadableByteCountBin(Long.parseLong(header.getValue())) + " (" + header.getValue() + ")",
-						header.getName());
-			}
-		}
-	}
-
-	public String humanReadableByteCountBin(long bytes) {
-		long b = bytes == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(bytes);
-		return b < 1024L ? bytes + " B"
-				: b <= 0xfffccccccccccccL >> 40 ? String.format("%.1f KiB", bytes / 0x1p10)
-						: b <= 0xfffccccccccccccL >> 30 ? String.format("%.1f MiB", bytes / 0x1p20)
-								: b <= 0xfffccccccccccccL >> 20 ? String.format("%.1f GiB", bytes / 0x1p30)
-										: b <= 0xfffccccccccccccL >> 10 ? String.format("%.1f TiB", bytes / 0x1p40)
-												: b <= 0xfffccccccccccccL
-														? String.format("%.1f PiB", (bytes >> 10) / 0x1p40)
-														: String.format("%.1f EiB", (bytes >> 20) / 0x1p40);
-	}
-
-	private void writeLogQuota(String message, String prefix) throws Exception {
-		log.write(message, prefix, folderQuota);
 	}
 
 }

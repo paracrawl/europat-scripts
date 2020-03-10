@@ -583,18 +583,18 @@ public class Common {
 			return null;
 	}
 
-	public String[] getFiles(String dir, String[] pattern, boolean recursive) {
+	public String[] getFiles(String path, String[] pattern, boolean recursive) {
 		IOFileFilter fileFilter = new WildcardFileFilter(pattern);
-		Collection<File> files = FileUtils.listFiles(new File(dir), fileFilter,
-				recursive ? TrueFileFilter.INSTANCE : null);
+		File file = new File(path);
+		Collection<File> files = FileUtils.listFiles(file, fileFilter, recursive ? TrueFileFilter.INSTANCE : null);
 
 		File[] afiles = files.toArray(new File[0]);
 		files = Arrays.asList(afiles);
 
 		List<String> fileList = new ArrayList<String>();
 		if (files != null && files.size() > 0) {
-			for (File file : files) {
-				fileList.add(file.getPath());
+			for (File f : files) {
+				fileList.add(f.getPath());
 			}
 			return fileList.toArray(new String[0]);
 		} else {

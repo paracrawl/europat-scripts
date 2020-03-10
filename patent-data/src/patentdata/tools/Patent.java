@@ -3,15 +3,22 @@ package patentdata.tools;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
@@ -20,6 +27,7 @@ import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.Characters;
 import javax.xml.stream.events.XMLEvent;
 
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -40,12 +48,9 @@ public class Patent extends PatentData {
 
 		log = new Log(configInfo.WorkingDir);
 		folderSearch = new File(configInfo.WorkingDir, "search");
-		folderQuota = new File(configInfo.WorkingDir, "quota");
 		try {
 			if (!folderSearch.exists())
 				folderSearch.mkdirs();
-			if (!folderQuota.exists())
-				folderQuota.mkdirs();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -57,54 +62,119 @@ public class Patent extends PatentData {
 	// -------------------------------------------------------------------------------
 
 	public void getPatentByDate(String sDate) throws Exception {
-		getPatentByDate(sDate, "yyyyMMdd", folderSearch);
+		getPatentByDate(sDate, "yyyyMMdd");
 	}
 
-	public void getPatentByDate(String sDate, String pattern, File folderOutput) throws Exception {
-		String resp = "", service = Service.PUBLISHED.getServiceName();
-		Date dateCrit = new SimpleDateFormat(pattern).parse(sDate);
-		Integer rangeBegin = 1;
-		boolean isErr = false;
-		do {
-			resp = SearchPatentsByDate(service, new String[] {}, pattern, dateCrit, null, rangeBegin,
-					(rangeBegin += 100) - 1);
-			if (resp.contains("<code>CLIENT.InvalidQuery</code>")) {
-				isErr = true;
+	public void getPatentByDate(String sDate, String pattern) throws Exception {
+		DateFormat dateFormat = new SimpleDateFormat(pattern);
+		String sFormat = "%d%02d%02d";
+		if (sDate.matches("\\d{4}")) {
+			int year = Integer.parseInt(sDate);
+			for (int month = Calendar.JANUARY; month <= Calendar.DECEMBER; month++) {
+				for (int day = 1; day <= getMonthDays(year, month); day++) {
+					getPatentByDate(dateFormat.parse(String.format(sFormat, year, month + 1, day)), pattern,
+							folderSearch);
+				}
 			}
-
-			StringBuilder filename = new StringBuilder().append(sDate).append("_")
-					.append(formatRange(rangeBegin - 100, rangeBegin - 1)).append(".xml");
-
-			// prepare sub folder
-			File folderTarget = new File(folderOutput, sDate);
-			writeFile(folderTarget, filename.toString(), resp);
-		} while (!isErr);
+		} else if (sDate.matches("\\d{6}")) {
+			int year = Integer.parseInt(sDate.substring(0, 4));
+			int month = Integer.parseInt(sDate.substring(4, 6)) - 1;
+			if (month < 12) {
+				for (int day = 1; day <= getMonthDays(year, month); day++) {
+					getPatentByDate(dateFormat.parse(String.format(sFormat, year, month + 1, day)), pattern,
+							folderSearch);
+				}
+			} else
+				System.out.println("Month should between 01-12");
+		} else if (sDate.matches("\\d{8}")) {
+			int year = Integer.parseInt(sDate.substring(0, 4));
+			int month = Integer.parseInt(sDate.substring(4, 6)) - 1;
+			int day = Integer.parseInt(sDate.substring(6, 8));
+			getPatentByDate(dateFormat.parse(String.format(sFormat, year, month + 1, day)), pattern, folderSearch);
+		}
 	}
 
-	public void getPatentIds(File folderInput, File folderOutput) throws Exception {
+	public void getPatentByDate(Date date, String pattern, File folderOutput) throws Exception {
+		String resp = "", service = Service.PUBLISHED.getServiceName();
+		Integer rangeBegin = 1;
+		boolean isEnd = false;
+
+		// first range 1-100
+		resp = SearchPatents(service, new String[] {}, pattern, date, null, rangeBegin, (rangeBegin += 100) - 1, null);
+
+		Integer totalResultCount = getTotalResultCount(resp);
+		log.print(String.format("%s : total-result-count=%s", date, totalResultCount));
+		if (totalResultCount > 2000) {
+			// ignore first range
+			for (String country : Arrays
+					.asList(String.join(",", Files.readAllLines(Paths.get(configInfo.CCPath))).split(","))) {
+				if (!StringUtils.isEmpty(country)) {
+					totalResultCount = 0;
+					rangeBegin = 1;
+					isEnd = false;
+					do {
+						resp = SearchPatents(service, new String[] {}, pattern, date, null, rangeBegin,
+								(rangeBegin += 100) - 1, country);
+
+						if (totalResultCount == 0) {
+							totalResultCount = getTotalResultCount(resp);
+							log.print(String.format("publicationdate=%s : countrycode=%s : totalresultcount=%s",
+									new SimpleDateFormat(pattern).format(date), country, totalResultCount));
+						}
+
+						if (resp.contains("<code>CLIENT.InvalidQuery</code>") || totalResultCount < rangeBegin) {
+							isEnd = true;
+						}
+						writeSearchResult(date, pattern, folderOutput, resp, rangeBegin, country);
+					} while (!isEnd);
+				}
+			}
+		} else if (totalResultCount > 0) {
+			// write the first range and move to next range
+			writeSearchResult(date, pattern, folderOutput, resp, rangeBegin, null);
+			do {
+				resp = SearchPatents(service, new String[] {}, pattern, date, null, rangeBegin, (rangeBegin += 100) - 1,
+						null);
+				if (resp.contains("<code>CLIENT.InvalidQuery</code>") || totalResultCount < rangeBegin) {
+					isEnd = true;
+				}
+				writeSearchResult(date, pattern, folderOutput, resp, rangeBegin, null);
+			} while (!isEnd);
+		} else {
+			log.printErr("Something wrong! Please try again later");
+			System.out.println(resp);
+		}
+	}
+
+	public void getPatentIds(File filein, File fileout) throws Exception {
 		try {
 			try {
+				File folderOutput = fileout.isDirectory() ? fileout : fileout.getParentFile();
 				if (!folderOutput.exists())
 					folderOutput.mkdirs();
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
 			// list all subfolders. if there is no a subfolder, set input folder into array
-			File[] files = folderInput.listFiles(File::isDirectory);
-			if (files.length == 0)
-				files = new File[] { folderInput };
-			for (File folderSub : files) {
-				for (String inputPath : common.getFiles(folderSub.toString(), new String[] { "*.xml" }, false)) {
+			File[] files = filein.listFiles(File::isDirectory);
+			if (files == null || files.length == 0)
+				files = new File[] { filein };
+			for (File file : files) {
+				String[] arr = file.isFile() ? new String[] { file.toString() }
+						: common.getFiles(file.toString(), new String[] { "*.xml" }, false);
+				for (String inputPath : arr) {
 					System.out.println(String.format("reading... %s", inputPath));
 					File fileInput = new File(inputPath);
-					File fileTarget = new File(folderOutput,
-							"ids_" + common.getBaseName(fileInput.getParent()) + ".txt");
-					String contents = String.join("\n", Files.readAllLines(fileInput.toPath()));
+					File fileTarget = "txt".equalsIgnoreCase(FilenameUtils.getExtension(fileout.toString())) ? fileout
+							: new File(fileout, "ids_"
+									+ common.getBaseName(filein.isFile() ? fileInput.toString() : fileInput.getParent())
+									+ ".txt");
 
+					// extract docno from XML document
+					String contents = String.join("\n", Files.readAllLines(fileInput.toPath()));
 					PatentDocno oDocno = new PatentDocno();
 					XMLEventReader eventReader = XMLInputFactory.newInstance()
 							.createXMLEventReader(new ByteArrayInputStream(contents.getBytes()));
-					// read the XML document
 					while (eventReader.hasNext()) {
 						XMLEvent event = eventReader.nextEvent();
 						if (event.isStartElement()) {
@@ -126,7 +196,7 @@ public class Patent extends PatentData {
 						} else if (event.isEndElement()) {
 							String localPart = event.asEndElement().getName().getLocalPart();
 							if (localPart == ("publication-reference")) {
-								// set document number
+								// prepare document number
 								StringBuffer sbDocNumber = new StringBuffer();
 								if (oDocno.type.equalsIgnoreCase(INPUT_FORMAT.docdb.toString())) {
 									sbDocNumber.append(oDocno.country).append(".").append(oDocno.number).append(".")
@@ -135,7 +205,7 @@ public class Patent extends PatentData {
 									sbDocNumber.append(oDocno.number);
 								}
 
-								// save id as text file
+								// append docno into text file
 								common.WriteFile(fileTarget.toString(), sbDocNumber.append("\n").toString(), true);
 
 								// reset variable
@@ -398,6 +468,38 @@ public class Patent extends PatentData {
 		return jarr;
 	}
 
+	protected Integer getTotalResultCount(String content) {
+		Integer result = 0;
+		List<String> list = listStringPattern("total-result-count=\"([0-9]*)\"", content);
+		if (list != null && list.size() > 0) {
+			result = Integer.valueOf(list.get(0));
+		}
+		return result;
+	}
+
+	protected List<String> listStringPattern(String patternString, String text) {
+		List<String> list = new ArrayList<String>();
+		Matcher matcher = Pattern.compile(patternString).matcher(text);
+		while (matcher.find()) {
+			list.add(matcher.group(1));
+		}
+		return list;
+	}
+
+	protected void writeSearchResult(Date date, String pattern, File folderOutput, String content, Integer rangeBegin,
+			String countryCode) throws Exception {
+		String sDate = new SimpleDateFormat(pattern).format(date);
+		StringBuilder filename = new StringBuilder().append(sDate).append("_");
+		if (!StringUtils.isEmpty(countryCode))
+			filename.append(countryCode).append("_");
+		filename.append(formatRange(rangeBegin - 100, rangeBegin - 1)).append(".xml");
+
+		// prepare sub folder
+		File fileTarget = new File(new File(folderOutput, sDate), filename.toString());
+		common.WriteFile(fileTarget.toString(), content, false);
+		System.out.println(String.format("saved : %s", fileTarget));
+	}
+
 	public String getPatentData(String id, String endpoint, String[] constituents) throws Exception {
 		return GetPatentsData(Service.PUBLISHED.getServiceName(), REF_TYPE.publication.toString(),
 				INPUT_FORMAT.epodoc.toString(), new String[] { id }, endpoint, constituents);
@@ -422,14 +524,10 @@ public class Patent extends PatentData {
 		return (event instanceof Characters) ? event.asCharacters().getData() : "";
 	}
 
-	private void writeFile(File folder, String filename, String content) throws Exception {
-		writeFile(folder, filename, content, false);
-	}
-
-	private void writeFile(File folder, String filename, String content, boolean isAppend) throws Exception {
-		File file = new File(folder, filename);
-		common.WriteFile(file.toString(), content, isAppend);
-		System.out.println(String.format("saved : %s", file));
+	private int getMonthDays(int year, int month) throws Exception {
+		Calendar calendar = Calendar.getInstance();
+		calendar.set(year, month, 1);
+		return calendar.getActualMaximum(Calendar.DAY_OF_MONTH);
 	}
 
 	class PatentDocno {
@@ -441,9 +539,11 @@ public class Patent extends PatentData {
 	private Connection getDBConnection() throws Exception {
 		Connection con = null;
 		try {
-			StringBuilder sbUrl = new StringBuilder(configInfo.Jdbc).append("://").append(configInfo.DbHost).append(":")
+			String sJdbc = configInfo.Jdbc;
+			String sDriver = configInfo.DbDriver;;// ("com.mysql.cj.jdbc.Driver");
+			StringBuilder sbUrl = new StringBuilder(sJdbc).append("://").append(configInfo.DbHost).append(":")
 					.append(configInfo.DbPort).append("/").append(configInfo.DbSchema);
-			Class.forName("org.mariadb.jdbc.Driver");// ("com.mysql.cj.jdbc.Driver");
+			Class.forName(sDriver);
 			con = DriverManager.getConnection(sbUrl.toString(), configInfo.DbUser, configInfo.DbPassword);
 		} catch (Exception e) {
 			e.printStackTrace();

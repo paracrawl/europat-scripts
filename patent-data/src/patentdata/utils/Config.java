@@ -45,6 +45,7 @@ public class Config {
 		_config.DbSchema = common.getJSONValue(json, "DbSchema");
 		_config.DbUser = common.getJSONValue(json, "DbUser");
 		_config.DbPassword = common.getJSONValue(json, "DbPassword");
+		_config.CCPath = common.getJSONValue(json, "CCPath");
 	}
 
 	public void updateToken(String newToken) {
@@ -77,6 +78,7 @@ public class Config {
 		public String DbSchema = "";
 		public String DbUser = "";
 		public String DbPassword = "";
+		public String CCPath = "";
 	}
 
 }
