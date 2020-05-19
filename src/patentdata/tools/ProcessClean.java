@@ -131,7 +131,7 @@ public class ProcessClean {
 		File inFile = new File(inputFilePath);
 		try {
 			String outputFilePath = common.combine(this.outputDirectory, inFile.getName());
-			fw = new FileWriter(outputFilePath, true);
+			fw = new FileWriter(outputFilePath, false);
 			
 			br = new BufferedReader(new FileReader(inFile));
 			String line;
@@ -191,7 +191,7 @@ public class ProcessClean {
 	    pRemainingTags2 = Pattern.compile("[ ]{2,}");
 	    pRemainingTags3 = Pattern.compile("\n{3,}");
 	    pRemainingTags4 = Pattern.compile("[ ]\n|\n[ ]");
-	    pRemainingTags5 = Pattern.compile("/\n{1,}");
+	    pRemainingTags5 = Pattern.compile("\n{1,}");
 	}
 
 	private String cleanTags(String text) {
