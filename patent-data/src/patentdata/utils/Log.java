@@ -10,7 +10,7 @@ public class Log {
 
 	private Common common = new Common();
 
-	private File folderLog = null;
+	public File folderLog = null;
 
 	public Log(String path) throws Exception {
 		try {
@@ -26,8 +26,32 @@ public class Log {
 		}
 	}
 
+	public void printErr(Exception e) throws Exception {
+		printErr(e, "", true);
+	}
+
+	public void writeErr(Exception e) throws Exception {
+		printErr(e, "", false);
+	}
+
 	public void printErr(String message) throws Exception {
-		print(message, "err");
+		printErr(null, message, true);
+	}
+
+	public void printErr(Exception e, String message) throws Exception {
+		printErr(e, message, true);
+	}
+
+	public void printErr(Exception e, String message, boolean isPrintStackTrace) throws Exception {
+		StringBuilder sb = new StringBuilder();
+		if (null != e) {
+			if (isPrintStackTrace)
+				e.printStackTrace();
+			sb.append(e.getMessage());
+		}
+		if (!StringUtils.isEmpty(message))
+			sb.append("\n").append(message);
+		print(sb.toString(), "err");
 	}
 
 	public void print(String message) throws Exception {
@@ -39,7 +63,8 @@ public class Log {
 	}
 
 	public void print(String message, String prefix, File folder) throws Exception {
-		System.out.println(message);
+		message = getLogMessage(message);
+		System.out.print((prefix.matches("(?i)err.*") ? "ERROR : " : "") + message);
 		write(message, prefix, folder);
 	}
 
@@ -47,7 +72,7 @@ public class Log {
 		common.WriteFile(
 				new File(folder, prefix + (StringUtils.isEmpty(prefix) ? "" : "_") + getNow("yyyyMMddHH") + ".log")
 						.toString(),
-				getLogMessage(message), true);
+				message, true);
 	}
 
 	public String getLogMessage(String message) throws Exception {

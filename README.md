@@ -1,194 +1,98 @@
-# Scripts for obtaining patent data
+# EuroPat
+## Table of Contents
+- [Introduction](#introduction)
+  - [Data Sources](#data-sources)
+  - [Kind Codes](#kind-codes)
+  - [File Naming Convention](#file-naming-convention)
+  - [Normalized Tab Format](#normalized-tab-format)
+- [Workflow Overview](#workflow-overview)
+  - [Data Preparation](#data-preparation)
+  - [Family Data](#family-data)
+  - [Processing](#processing)
+- [Installation](#installation)
+- [FAQ](#FAQ)
 
-  * `uspto_download`: download US patent data
+----
+## Introduction
+The EuroPat project collects, processes and aligns patent data from multiple patent offices (i.e. USPTO and EPO) to create parallel corpora. The source set of data may be in a different patent office from the target set of data and each set of data is in multiple formats even within the same patent office. 
 
-___
+The code in this project normalizes the data, performs the necessary lookups needed to match and cross reference the files and then further formats and processes the data ready for alignment. The last stage is to align the data. 
 
+## Data Sources
+USPTO direct data comes from https://bulkdata.uspto.gov/ in the section “Patent Grant Full Text Data (No Images) (JAN 1976 - PRESENT)” and is free to download.
+EPO data comes from a purchase set of data stored on Valhalla at University of Edinburgh.
 
-## `patent-data`
-java project for implement tool to retrieve patent data
+## Kind Codes
+Bulk data is classified by a Kind Code.
 
-## Using `patent.jar`
-Patent-data can be used as a command line tool in 4 different methods.
-   
+USPTO Kind Codes: https://www.uspto.gov/learning-and-resources/support-centers/electronic-business-center/kind-codes-included-uspto-patent
+EPO Kind Codes: https://worldwide.espacenet.com/help?locale=en_EP&method=handleHelpTopic&topic=kindcodes
+
+For Phase 1, we are processing Grants and their associated Kind Codes.
+
+## File Naming Convention
+```sh
+<source>-<lang>-<year>-<section>.tab
 ```
 
-java -jar patent.jar --help
+Examples:
+```sh
+USPTO-EN-2019-meta.tab		All relevant meta data such as IPC, dates etc.
+USPTO-EN-2019-title.tab		Titles only
+USPTO-EN-2019-abstract.tab	Abstracts only
+USPTO-EN-2019-claim.tab		Claims only
+USPTO-EN-2019-desc.tab		Description only
 
-------------------------
-Select method: -search or -extractid or -getfamily or -getpair (Required)
-------------------------
+EP-EN-2019-meta.tab
+EP-EN-2019-title.tab		
+EP-EN-2019-abstract.tab	
+EP-EN-2019-claim.tab		
+EP-EN-2019-desc.tab		
+EP-DE-2019-meta.tab
+EP-DE-2019-title.tab		
+EP-DE-2019-abstract.tab	
+EP-DE-2019-claim.tab		
+EP-DE-2019-desc.tab		
+```
+## Normalized Tab Format
+Data comes from many sources and is in multiple formats even within the same source. A normalized tab format file is created for all data so that it can then be processed with one set of tools for the remainder of the tasks. Each patent is compacted onto a single line and merged into a larger file by year.
 
+All data files except for meta type have the following base format per line:
+```sh
+<doc id><tab><date><tab><other data>
 ```
 
-   
-**1. Search Patent**
-
-   *Usage*
-
-   ```
-
-   java -jar patent.jar -search [--help] <yyyyMM> -C <config_file>
-
-   ------------------------
-   Parameters
-   ------------------------
-   1. <Date> (Required): Date to search patents (YYYYMMDD)
-   2. -C <ConfigPath> (Optional): JSON configuration file.
-   ------------------------
-   Example
-   ------------------------
-   java -jar patent.jar -search "20191231" -C "config/path/patent.json"
-   ------------------------
-
-   ```
-
-   *Description*
-
-   - Call the OPS API to get all patents published within a date
-   - Data will be save into directory `WorkingDir`/search/
-
-
-
-
-**2. Extract Document Id**
-
-   *Usage*
-   
-   ```
-   
-   java -jar patent.jar -extractid [--help] -I <input_dir> -O <output_dir> -C <config_file>
-   
-   ------------------------
-   Parameters
-   ------------------------
-   1. -I <InputDir> (Required): Input folder
-   2. -O <OutputDir> (Required): Output folder
-   3. -C <ConfigPath> (Optional): JSON configuration file
-   ------------------------
-   Example
-   ------------------------
-   java -jar patent.jar -extractid -I "input/directory" -O "output/directory" -C "config/path/patent.json"
-   ------------------------
-
-   ```
-  
-   *Description*
-
-   - Lookup xml file into `<input_dir>`
-   - Get the document id from xml and save to directory `<output_dir>`
-
-
-
-
-**3. Get Family Data**
-
-   *Usage*
-   
-   ```
-   java -jar patent.jar -getfamily [--help] -I <input_path> -D <document_id> -C <config_file>
-   
-   ------------------------
-   Parameters
-   ------------------------
-   1. -I <InputPath> or -D <DocId> (Required): Input file path or folder (TXT only) or Document Id (CountryCode.DocNo.KindCode)
-   2. -C <ConfigPath> (Optional): Config path
-   ------------------------
-   Example
-   ------------------------
-   java -jar patent.jar -getfamily -I "input/path/ids_201912.txt" -C "config/path/patent.json"
-   java -jar patent.jar -getfamily -D "JP.H07196059.A" -C "config/path/patent.json"
-   ------------------------
-   
-   ```
-  
-   *Description*
-   
-   - Get the family data for each ID
-   - Extract and store the family data in a database in an easy to query format
-
-
-
-
-**4. Get Patent Pair Data**
-
-   *Usage*
-   
-   ```
-   
-   java -jar patent.jar -getpair [--help] <source_country> <target_country> -O <output_path> -C <config_file>
-   
-   ------------------------
-   Parameters
-   ------------------------
-   1. <SourceCountry> (Required): Source Country
-   2. <TargetCountry> (Required): Target Country
-   3. -O <OutputPath> (Required): Output file path (TXT only)
-   4. -C <ConfigPath> (Optional): Config path
-   ------------------------
-   Example
-   ------------------------
-   java -jar patent.jar -getpair "TW" "US" -O "input/path/pair_result.txt" -C "config/path/conf.json"
-   ------------------------
-   
-   ```
-  
-   *Description*
-
-
-   - Query based on language pair
-  
-
-> If JSON configuration is not specified, then the file `patent.json` in the same folder as the `patent.jar` file will be used.
-
-> Note - you cannot get the language of the document from the family, only the location. You have to pull the document to get the actual language.
- 
- 
- 
-  
-## patent.json
-
-patent configuration 
-ile, put it into the patent-data installation path b
-side .jar file.
-
-```
-{
-	"ConsumerKey": "",
-	"ConsumerSecretKey": "",
-	"Protocol": "https",
-	"Host": "ops.epo.org",
-	"AuthenURL": "/3.2/auth/accesstoken",
-	"ServiceURL": "/3.2/rest-services/",
-	"WorkingDir": "/work",
-	"DbDriver": "org.mariadb.jdbc.Driver",
-	"Jdbc": "jdbc:mariadb",
-	"DbHost": "localhost",
-	"DbPort": "3306",
-	"DbSchema": "patent",
-	"DbUser": "",
-	"DbPassword": ""
-}
+Examples:
+```sh
+US-10174136-B2	20190108	Methods for making a plurality of nanoparticles are provided. The method may include flowing a first component of the core into a reaction chamber; flowing a polymeric material into the reaction chamber; and flowing a second component of the core into the reaction chamber such that the first component reacts with the second component to form a core. The polymeric material forms a polymeric shell around the core.
+US-10174150-B2	20190108	A one-part moisture-curing liquid-applied waterproofing membrane as disclosed includes a polyurethane polymer obtained from at least one polyether polyol and at least one diisocyanate, and an aldimine of the formula (I). The membrane has a long shelf life stability with both aromatic and aliphatic isocyanates, a low viscosity at low solvent content, a sufficiently long open time to allow hand application and cures fast to a solid elastic material of high strength and high elongation. The released aldehyde is non-toxic and low flammable and evaporates quickly out of the membrane causing only minimal odor emission. The membrane has high crack-bridging qualities in a broad temperature range and is easily overcoatable without interlayer adhesion problems, which makes it particularly suitable for roofing applications.
+US-10174151-B2	20190108	The present invention relates to a method for producing polyether carbonate polyols, wherein: (i) in a first step, (a) carbon dioxide and propylene oxide or (b) carbon dioxide and a mixture of propylene oxide and at least one further alkylene oxide in a ratio by weight of &#x3e;90:10 are attached to one or more H-functional starting substances in the presence of at least one DMC catalyst; (ii) in a second step, the reaction mixture obtained from step (i) is (ii-1) first chain-lengthened with a mixture containing propylene oxide (PO) and ethylene oxide (EO) in a PO/EO ratio by weight of 90/10 to 20/80 in the presence of at least one DMC catalyst.
 
 ```
 
-- `ConsumerKey`  specifies the consumer key
-- `ConsumerSecretKey`  specifies the consumer secret
-- `Protocol`  specifies the protocol used for api
-- `Host`  specifies the host used for api
-- `AuthenURL`  specifies the authen url used for api
-- `ServiceURL`  specifies the service url used for api
-- `WorkingDir`  specifies the working directory for the process
-- `DbDriver`  specifies the database driver
-- `Jdbc`  specifies the database vendor
-- `DbHost`  specifies the database host
-- `DbPort`  specifies the database port
-- `DbSchema`  specifies the database schema
-- `DbUser`  specifies the database user
-- `DbPassword`  specifies the database password
+## Workflow Overview
+### Data Preparation
+* Convert the USPTO data into the normalized tab format above.
+* Convert the EPO data into the normalized tab format above.
+
+### Family Data
+* Using the EPO data scan the list of XML files to extract a list of unique IDs.
+* Call the EPO OPS API to get the family data for each unique ID and store the data in a database table.
+For each datasource (USPTO, EPO, etc.) load the list of pre-formatted tab data with their IDs into the database (not the full data, just the IDs)
+* Produce a list of paired datasets by language.
+
+### Processing
+* Extract the paired sections into a tab file by language pair
+* Clean the data and prepare it for sentence alignment
+* Extract to individual files with a paired ID
+* Sentence Segment
+* Tokenize
+* Align
 
 
-## patent_docno.sql
+![alt text](EuropatWorkflow.jpg "EuroPat Workflow")
 
-database script to create patent_docno table 
 
+## Installation
+
+## FAQ

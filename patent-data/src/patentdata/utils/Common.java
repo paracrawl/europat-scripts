@@ -14,9 +14,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -33,7 +31,6 @@ import org.json.JSONObject;
  */
 public class Common {
 	Object _oLockerFile = new Object();
-	private int verbose = 1;
 
 	public static boolean isWindows() {
 		String os = System.getProperty("os.name").toLowerCase();
@@ -116,88 +113,6 @@ public class Common {
 			fileNew.delete();
 		}
 		FileUtils.copyFileToDirectory(file, folder);
-	}
-
-	public String getStr(Object obj) {
-		try {
-			if (obj == null)
-				return "";
-			else
-				return obj.toString();
-
-		} catch (Exception e) {
-			return "";
-		}
-	}
-
-	public Boolean getBool(Object obj) {
-		try {
-			if (obj == null)
-				return false;
-			else {
-				if (obj.toString().equals("1") || obj.toString().toLowerCase().trim().equals("true"))
-					return true;
-				else
-					return Boolean.valueOf(obj.toString());
-			}
-
-		} catch (Exception e) {
-			return false;
-		}
-	}
-
-	public int getInt(Object obj) {
-		try {
-			if (obj == null)
-				return 0;
-			else if (obj.equals(""))
-				return 0;
-			else
-				return Integer.parseInt(obj.toString());
-		} catch (Exception e) {
-			return 0;
-		}
-	}
-
-	public long getLong(Object obj) {
-		try {
-			if (obj == null)
-				return 0;
-			else if (obj.equals(""))
-				return 0;
-			else
-				return Long.parseLong(obj.toString());
-		} catch (Exception e) {
-			return 0;
-		}
-	}
-
-	public float getFloat(Object obj) {
-		try {
-			if (obj == null)
-				return 0;
-			else if (obj == "")
-				return 0;
-			else
-				return Float.parseFloat(obj.toString().trim());
-
-		} catch (Exception e) {
-			return 0;
-		}
-	}
-
-	public double getDouble(Object obj) {
-		try {
-			if (obj == null)
-				return 0;
-			else if (obj == "")
-				return 0;
-			else
-				return Double.parseDouble(obj.toString().trim());
-
-		} catch (Exception e) {
-			return 0;
-		}
 	}
 
 	public boolean IsEmpty(Object object) {
@@ -323,7 +238,22 @@ public class Common {
 	}
 
 	public void writeLog(String path, String inputfile, String message, boolean isError) {
-		if (verbose == 1) {
+
+		if (IsEmpty(path)) {
+
+			if (!IsEmpty(inputfile)) {
+				message = "File: " + inputfile + ", " + message;
+			}
+
+			Calendar oCal = Calendar.getInstance();
+			//
+			SimpleDateFormat oDateTimeFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S");
+			String text = oDateTimeFormat.format(oCal.getTime()) + "\t" + (isError ? "ERROR" : "INFO") + "\t" + message;
+			//
+			System.out.println(text);
+
+		} else {
+
 			synchronized (_oLockerFile) {
 
 				BufferedWriter oBuffer = null;
@@ -441,36 +371,14 @@ public class Common {
 	}
 
 	public void print(String file, String message) {
-		if (verbose == 1) {
-			if (!IsEmpty(file)) {
-				message = "File: " + file + ", " + message;
-			}
-			System.out.println(message);
+		if (!IsEmpty(file)) {
+			message = "File: " + file + ", " + message;
 		}
-	}
-
-	public void setVerbose(int val) {
-		verbose = val;
+		System.out.println(message);
 	}
 
 	public String getConfigPath() {
 		return combine(getJarPath(), "patent.json");
-	}
-
-	public String replaceText(HashMap<String, String> hash, String text) {
-		String rtext = text;
-		if (hash != null && hash.size() > 0) {
-			for (@SuppressWarnings("rawtypes")
-			Map.Entry me : hash.entrySet()) {
-				String search = me.getKey().toString();
-				String replace = me.getValue().toString();
-
-				// rtext = rtext.replaceAll(Pattern.quote(search), replace);
-				rtext = rtext.replaceAll(search, replace);
-			}
-		}
-
-		return rtext;
 	}
 
 	public String getStackTrace(Exception exception) {
@@ -493,27 +401,6 @@ public class Common {
 			}
 		}
 		return text;
-	}
-
-	public String getOutputError(Exception e) {
-
-		StringBuffer html = new StringBuffer("");
-		html.append("<html>" + "\n");
-		html.append("<error>" + "\n");
-		html.append("<message>" + "\n");
-		html.append("<![CDATA[" + "\n");
-		html.append(e.getMessage() + "\n");
-		html.append("]]>" + "\n");
-		html.append("</message>" + "\n");
-		html.append("<stacktrace>" + "\n");
-		html.append("<![CDATA[" + "\n");
-		html.append(getStackTrace(e) + "\n");
-		html.append("]]>" + "\n");
-		html.append("</stacktrace>" + "\n");
-		html.append("</error>" + "\n");
-		html.append("</html>" + "\n");
-
-		return html.toString();
 	}
 
 	public JSONObject getJSONObject(String sData) {

@@ -5,18 +5,20 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -29,16 +31,16 @@ import javax.xml.stream.events.XMLEvent;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 import patentdata.utils.Config;
+import patentdata.utils.Connector;
 import patentdata.utils.Log;
 import patentdata.utils.PatentData;
+import patentdata.utils.PatentDocno;
 
 public class Patent extends PatentData {
 
-	private File folderSearch = null;
+	Connection con = null;
 
 	private void initial(String path) throws Exception {
 		if (StringUtils.isEmpty(path))
@@ -47,13 +49,11 @@ public class Patent extends PatentData {
 		configInfo = config._config;
 
 		log = new Log(configInfo.WorkingDir);
-		folderSearch = new File(configInfo.WorkingDir, "search");
-		try {
-			if (!folderSearch.exists())
-				folderSearch.mkdirs();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		connector = new Connector(config);
+	}
+
+	public Patent() throws Exception {
+		
 	}
 
 	public Patent(String path) throws Exception {
@@ -66,6 +66,13 @@ public class Patent extends PatentData {
 	}
 
 	public void getPatentByDate(String sDate, String pattern) throws Exception {
+		File folderSearch = new File(configInfo.WorkingDir, "search");
+		try {
+			if (!folderSearch.exists())
+				folderSearch.mkdirs();
+		} catch (Exception e) {
+			log.printErr(e);
+		}
 		DateFormat dateFormat = new SimpleDateFormat(pattern);
 		String sFormat = "%d%02d%02d";
 		if (sDate.matches("\\d{4}")) {
@@ -85,7 +92,7 @@ public class Patent extends PatentData {
 							folderSearch);
 				}
 			} else
-				System.out.println("Month should between 01-12");
+				log.print("Month should between 01-12");
 		} else if (sDate.matches("\\d{8}")) {
 			int year = Integer.parseInt(sDate.substring(0, 4));
 			int month = Integer.parseInt(sDate.substring(4, 6)) - 1;
@@ -142,330 +149,397 @@ public class Patent extends PatentData {
 			} while (!isEnd);
 		} else {
 			log.printErr("Something wrong! Please try again later");
-			System.out.println(resp);
+			log.printErr(resp);
 		}
 	}
 
 	public void getPatentIds(File filein, File fileout) throws Exception {
-		try {
-			try {
-				File folderOutput = fileout.isDirectory() ? fileout : fileout.getParentFile();
-				if (!folderOutput.exists())
-					folderOutput.mkdirs();
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-			// list all subfolders. if there is no a subfolder, set input folder into array
-			File[] files = filein.listFiles(File::isDirectory);
-			if (files == null || files.length == 0)
-				files = new File[] { filein };
-			for (File file : files) {
-				String[] arr = file.isFile() ? new String[] { file.toString() }
-						: common.getFiles(file.toString(), new String[] { "*.xml" }, false);
-				for (String inputPath : arr) {
-					System.out.println(String.format("reading... %s", inputPath));
-					File fileInput = new File(inputPath);
-					File fileTarget = "txt".equalsIgnoreCase(FilenameUtils.getExtension(fileout.toString())) ? fileout
-							: new File(fileout, "ids_"
-									+ common.getBaseName(filein.isFile() ? fileInput.toString() : fileInput.getParent())
-									+ ".txt");
+		File folderOutput = fileout.isDirectory() ? fileout : fileout.getParentFile();
+		if (null != folderOutput && !folderOutput.exists())
+			folderOutput.mkdirs();
 
+		// list all subfolders. if there is no a subfolder, set input folder into array
+		File[] files = filein.listFiles(File::isDirectory);
+		if (files == null || files.length == 0)
+			files = new File[] { filein };
+		for (File file : files) {
+			String[] sources = file.isFile() ? new String[] { file.toString() }
+					: common.getFiles(file.toString(), new String[] { "*.xml" }, false);
+			for (String inputPath : sources) {
+				System.out.println(String.format("reading... %s", inputPath));
+				File fileInput = new File(inputPath);
+				File fileTarget = "txt".equalsIgnoreCase(FilenameUtils.getExtension(fileout.toString())) ? fileout
+						: new File(fileout, "ids_"
+								+ common.getBaseName(filein.isFile() ? fileInput.toString() : fileInput.getParent())
+								+ ".txt");
+
+				try {
 					// extract docno from XML document
 					String contents = String.join("\n", Files.readAllLines(fileInput.toPath()));
-					PatentDocno oDocno = new PatentDocno();
-					XMLEventReader eventReader = XMLInputFactory.newInstance()
-							.createXMLEventReader(new ByteArrayInputStream(contents.getBytes()));
-					while (eventReader.hasNext()) {
-						XMLEvent event = eventReader.nextEvent();
-						if (event.isStartElement()) {
-							String localPart = event.asStartElement().getName().getLocalPart();
-							switch (localPart) {
-							case "document-id":
-								oDocno.type = getAttribute(event, "document-id-type");
-								break;
-							case "country":
-								oDocno.country = getCharacterData(event, eventReader);
-								break;
-							case "doc-number":
-								oDocno.number = getCharacterData(event, eventReader);
-								break;
-							case "kind":
-								oDocno.kind = getCharacterData(event, eventReader);
-								break;
-							}
-						} else if (event.isEndElement()) {
-							String localPart = event.asEndElement().getName().getLocalPart();
-							if (localPart == ("publication-reference")) {
-								// prepare document number
-								StringBuffer sbDocNumber = new StringBuffer();
-								if (oDocno.type.equalsIgnoreCase(INPUT_FORMAT.docdb.toString())) {
+					if (!StringUtils.isEmpty(contents)) {
+						PatentDocno oDocno = new PatentDocno();
+						XMLEventReader eventReader = XMLInputFactory.newInstance()
+								.createXMLEventReader(new ByteArrayInputStream(contents.getBytes()));
+						while (eventReader.hasNext()) {
+							XMLEvent event = eventReader.nextEvent();
+							if (event.isStartElement()) {
+								String localPart = event.asStartElement().getName().getLocalPart();
+								switch (localPart) {
+								case "document-id":
+									oDocno.type = getAttribute(event, "document-id-type");
+									break;
+								case "country":
+									oDocno.country = getCharacterData(event, eventReader);
+									break;
+								case "doc-number":
+									oDocno.number = getCharacterData(event, eventReader);
+									break;
+								case "kind":
+									oDocno.kind = getCharacterData(event, eventReader);
+									break;
+								}
+							} else if (event.isEndElement()) {
+								String localPart = event.asEndElement().getName().getLocalPart();
+								if (localPart == ("publication-reference")) {
+									// prepare document number
+									StringBuffer sbDocNumber = new StringBuffer();
 									sbDocNumber.append(oDocno.country).append(".").append(oDocno.number).append(".")
 											.append(oDocno.kind);
-								} else {
-									sbDocNumber.append(oDocno.number);
+
+									// append docno into text file
+									common.WriteFile(fileTarget.toString(), sbDocNumber.append("\n").toString(), true);
+
+									// reset variable
+									oDocno = new PatentDocno();
 								}
-
-								// append docno into text file
-								common.WriteFile(fileTarget.toString(), sbDocNumber.append("\n").toString(), true);
-
-								// reset variable
-								oDocno = new PatentDocno();
 							}
 						}
+					} else {
+						log.print(String.format("empty file : %s", inputPath));
 					}
-					System.out.println(String.format("saved : %s", fileTarget));
+				} catch (Exception e) {
+					log.printErr(e, fileInput.toString());
 				}
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
-	}
-
-	public void getFamily(File fileInput) throws Exception {
-		Connection con = null;
-		try {
-			con = getDBConnection();
-			getFamily(fileInput, con);
-		} catch (Exception e) {
-			e.printStackTrace();
-		} finally {
-			close(con);
-		}
-
-	}
-
-	public void getFamily(File fileInput, Connection con) throws Exception {
-		// if input is a directory then get all txt files
-		// if input is a file then set it into array
-		// if input is not exists then do nothing
-		String[] files = fileInput.isDirectory()
-				? common.getFiles(fileInput.toString(), new String[] { "*.txt" }, false)
-				: fileInput.exists() ? new String[] { fileInput.toString() } : new String[] {};
-		if (files.length > 0) {
-			for (String idPath : files) {
-				log.print(idPath);
-				List<String> idList = common.readLines(idPath);
-				for (String docno : idList) {
-					getFamily(docno, con);
-				}
+				System.out.println(String.format("saved : %s", fileTarget));
 			}
 		}
 	}
 
-	public void getFamily(String docno) throws Exception {
-		Connection con = null;
+	public void getFamily(File fileInput, File folderOutput) throws Exception {
 		try {
-			con = getDBConnection();
-			getFamily(docno, con);
-		} catch (Exception e) {
-			e.printStackTrace();
-		} finally {
-			close(con);
-		}
-	}
-
-	public void getFamily(String docno, Connection con) throws Exception {
-		// get family by doc no from APIs
-		String contents = ListFamily(REF_TYPE.publication.toString(), INPUT_FORMAT.docdb.toString(), docno,
-				new String[] {});
-		try {
-			PatentDocno oDocno = new PatentDocno();
-			XMLEventReader eventReader = XMLInputFactory.newInstance()
-					.createXMLEventReader(new ByteArrayInputStream(contents.getBytes()));
-			// read the XML document
-			boolean isMember = false;
-			while (eventReader.hasNext()) {
-				XMLEvent event = eventReader.nextEvent();
-				if (event.isStartElement()) {
-					String localPart = event.asStartElement().getName().getLocalPart();
-					switch (localPart) {
-					case "family-member":
-						oDocno.familyid = getAttribute(event, "family-id");
-						isMember = true;
-						break;
-					case "document-id":
-						if (isMember)
-							oDocno.type = getAttribute(event, "document-id-type");
-						break;
-					case "country":
-						if (isMember)
-							oDocno.country = getCharacterData(event, eventReader);
-						break;
-					case "doc-number":
-						if (isMember)
-							oDocno.number = getCharacterData(event, eventReader);
-						break;
-					case "kind":
-						if (isMember)
-							oDocno.kind = getCharacterData(event, eventReader);
-						break;
-					case "date":
-						if (isMember)
-							oDocno.date = getCharacterData(event, eventReader);
-						break;
-					}
-				} else if (event.isEndElement()) {
-					String localPart = event.asEndElement().getName().getLocalPart();
-					if (localPart == ("publication-reference")) {
-						// set document number
-						StringBuffer sbDocNumber = new StringBuffer();
-						if (oDocno.type.equalsIgnoreCase(INPUT_FORMAT.docdb.toString())) {
-							sbDocNumber.append(oDocno.country).append(".").append(oDocno.number).append(".")
-									.append(oDocno.kind);
-						} else {
-							sbDocNumber.append(oDocno.number);
+			if (null != folderOutput && !folderOutput.exists())
+				folderOutput.mkdirs();
+			// if input is a directory then get all txt files
+			// if input is a file then set it into array
+			// if input is not exists then do nothing
+			String[] files = fileInput.isDirectory()
+					? common.getFiles(fileInput.toString(), new String[] { "*.txt" }, false)
+					: fileInput.exists() ? new String[] { fileInput.toString() } : new String[] {};
+			if (files.length > 0) {
+				for (String idPath : files) {
+					log.print(idPath);
+					List<String> idList = common.readLines(idPath);
+					for (String docno : idList) {
+						try {
+							String[] arr = docno.split("\\.");
+//							docno = arr[0]+"."+arr[1].replaceFirst("^0+(?!$)", "")+"."+arr[2];
+							if (arr.length > 1 && "EP".equalsIgnoreCase(arr[0]) && arr[1].length() > 7)
+								docno = arr[0] + "." + arr[1].substring(arr[1].length() - 7) + "." + arr[2];
+							getFamily(docno, folderOutput);
+						} catch (Exception e) {
+							log.printErr(e, docno);
 						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			log.printErr(e);
+		}
+	}
+
+	public String getFamily(String docno, File folderOutput) throws Exception {
+		String familyid = "";
+		try {
+			if (StringUtils.isEmpty(docno)) {
+				log.print(String.format("No document number"));
+				return "";
+			} else {
+				log.print(String.format("======================= START %s =======================", docno));
+				// get family by doc no from APIs
+				String contents = ListFamily(REF_TYPE.publication.toString(), INPUT_FORMAT.docdb.toString(), docno,
+						new String[] {});
+
+				String filename = "family_" + docno.replaceAll("\\.", "");
+
+				File fileXml = new File(new File(folderOutput, "xml"), filename + ".xml");
+				common.WriteFile(fileXml.toString(), contents);
+				System.out.println(String.format("XML saved : %s", fileXml));
+
+				// extract family members
+				List<String> members = readFamily(contents);
+
+				// append family members into text file
+				File fileTxt = new File(new File(folderOutput, "txt"), filename + ".txt");
+				common.WriteFile(fileTxt.toString(), String.join("\n", members), true);
+				System.out.println(String.format("TXT saved : %s", fileTxt));
+				log.print(String.format("======================= END %s =======================", docno));
+			}
+		} catch (Exception e) {
+			log.printErr(e);
+		} finally {
+			connector.close(con);
+		}
+		return familyid;
+	}
+
+	public List<String> readFamily(String contents) throws Exception {
+		List<String> members = new ArrayList<String>();
+		String familyid = "";
+		log.print(String.format("reading family members"));
+		PatentDocno oDocno = new PatentDocno();
+		XMLEventReader eventReader = XMLInputFactory.newInstance()
+				.createXMLEventReader(new ByteArrayInputStream(contents.getBytes()));
+		// read the XML document
+		boolean isMember = false;
+		String doctype = "";
+
+		while (eventReader.hasNext()) {
+			XMLEvent event = eventReader.nextEvent();
+			if (event.isStartElement()) {
+				String localPart = event.asStartElement().getName().getLocalPart();
+				switch (localPart) {
+				case "family-member":
+					oDocno.familyid = getAttribute(event, "family-id");
+					if (StringUtils.isEmpty(familyid))
+						familyid = oDocno.familyid;
+					isMember = true;
+					break;
+				case "document-id":
+					if (isMember)
+						doctype = getAttribute(event, "document-id-type");
+					break;
+				case "country":
+					if (isMember && INPUT_FORMAT.docdb.toString().equalsIgnoreCase(doctype))
+						oDocno.country = getCharacterData(event, eventReader);
+					break;
+				case "doc-number":
+					if (isMember && INPUT_FORMAT.docdb.toString().equalsIgnoreCase(doctype))
+						oDocno.number = getCharacterData(event, eventReader);
+					break;
+				case "kind":
+					if (isMember && INPUT_FORMAT.docdb.toString().equalsIgnoreCase(doctype))
+						oDocno.kind = getCharacterData(event, eventReader);
+					break;
+				case "date":
+					if (isMember && INPUT_FORMAT.docdb.toString().equalsIgnoreCase(doctype))
+						oDocno.date = getCharacterData(event, eventReader);
+					break;
+				}
+			} else if (event.isEndElement()) {
+				String localPart = event.asEndElement().getName().getLocalPart();
+				if (localPart == ("publication-reference")) {
+					if (!StringUtils.isEmpty(oDocno.number)) {
+						// set document number
+						StringBuffer sbDocNumber = new StringBuffer(oDocno.familyid);
+						sbDocNumber.append(".").append(oDocno.country).append(".").append(oDocno.number).append(".")
+								.append(oDocno.kind);
 						if (!StringUtils.isEmpty(oDocno.date)) {
 							sbDocNumber.append(".").append(oDocno.date);
 						}
 
-						try {// not break when Exception
-							insertPatentHeader(oDocno, con);
-						} catch (Exception e) {
-							e.printStackTrace();
-						}
+						members.add(sbDocNumber.toString());
+					}
 
-						// reset variable
-						oDocno = new PatentDocno();
-					} else if (localPart == ("family-member"))
-						isMember = false;
+					// reset variable
+					oDocno = new PatentDocno();
+				} else if (localPart == ("family-member")) {
+					isMember = false;
+				}
+			}
+		}
+		return members;
+	}
+
+	public void insertFamily(File fileInput) throws Exception {
+		try {
+			// if input is a directory then get all txt & xml files
+			// if input is a file then set it into array
+			// if input is not exists then do nothing
+			String[] files = fileInput.isDirectory()
+					? common.getFiles(fileInput.toString(), new String[] { "*.txt", "*.xml" }, false)
+					: fileInput.exists() ? new String[] { fileInput.toString() } : new String[] {};
+			if (files.length > 0) {
+				for (String familyPath : files) {
+					log.print(String.format("reading : %s", familyPath));
+					for (String docno : FilenameUtils.getExtension(familyPath).equalsIgnoreCase("xml")
+							? readFamily(String.join("\n", Files.readAllLines(new File(familyPath).toPath())))
+							: common.readLines(familyPath)) {
+						try {
+							String[] arr = docno.split("\\.");
+							PatentDocno oDocno = new PatentDocno();
+							oDocno.familyid = arr[0];
+							oDocno.country = arr[1];
+							oDocno.number = arr[2];
+							oDocno.kind = arr[3];
+							insertPatentHeader(oDocno);
+						} catch (Exception e) {
+							log.printErr(e, docno);
+						}
+					}
 				}
 			}
 		} catch (Exception e) {
-			log.printErr(new StringBuilder(e.getMessage()).append("\n").append(contents).toString());
+			log.printErr(e);
+		} finally {
+			connector.close(con);
 		}
 	}
 
 	public void getPair(String sourcelang, String targetlang, File fileOutput) throws Exception {
+		log.print(String.format("Pairing : %s, %s", sourcelang, targetlang));
 		// list doc no from db
-		JSONArray jarr = listDocnoByPair(sourcelang, targetlang);
+		List<Map<String, PatentDocno>> list = listDocnoByPair(sourcelang, targetlang);
 
+		Instant start = Instant.now();
+		log.print("WRITING :::::::::::::::::::::::::::: ");
 		// pairing between sources and targets
 		StringBuilder content = new StringBuilder();
-		for (int i = 0; i < jarr.length(); i++) {
-			JSONArray jsources = jarr.getJSONObject(i).getJSONObject("source").getJSONArray("members");
-			JSONArray jtargets = jarr.getJSONObject(i).getJSONObject("target").getJSONArray("members");
-			for (int s = 0; s < jsources.length(); s++) {
-				JSONObject smember = jsources.getJSONObject(s);
-				for (int t = 0; t < jtargets.length(); t++) {
-					JSONObject tmember = jtargets.getJSONObject(t);
-					content.append(smember.getString("country_code")).append(".").append(smember.getString("doc_no"))
-							.append(".").append(smember.getString("kind_code")).append("\t")
-							.append(tmember.getString("country_code")).append(".").append(tmember.getString("doc_no"))
-							.append(".").append(tmember.getString("kind_code")).append("\n");
-				}
-			}
+		for (Map<String, PatentDocno> map : list) {
+			PatentDocno oSource = map.get("source");
+			PatentDocno oTarget = map.get("target");
+			content.append(oSource.country).append(".").append(oSource.number).append(".").append(oSource.kind)
+					.append("\t").append(oTarget.country).append(".").append(oTarget.number).append(".")
+					.append(oTarget.kind).append("\n");
 		}
 
 		common.WriteFile(fileOutput.toString(), content.toString());
-		System.out.println(String.format("saved : %s", fileOutput));
+
+		Instant finish = Instant.now();
+		log.print(String.format("Writing time %s Millis", Duration.between(start, finish).toMillis()));
+		log.print((StringUtils.isEmpty(content)
+				? String.format("No saved file : Not found %s match %s", sourcelang, targetlang)
+				: String.format("saved : %s", fileOutput)));
 	}
 
-	public void insertPatentHeader(PatentDocno oDocno, Connection con) throws Exception {
+	public boolean findDocno(PatentDocno oDocno) throws Exception {
+		boolean isFound = false;
+		StringBuilder sbQuery = new StringBuilder("select * from ").append(TAB_DOCNO)
+				.append(" where doc_no=? and country_code=? and kind_code=?;");
+		PreparedStatement pstmt = null;
+		ResultSet rs = null;
+		try {
+			con = connector.get(con);
+			pstmt = con.prepareStatement(sbQuery.toString());
+			pstmt.setString(1, oDocno.number);
+			pstmt.setString(2, oDocno.country);
+			pstmt.setString(3, oDocno.kind);
+			rs = pstmt.executeQuery();
+			if (rs.next()) {
+				isFound = true;
+			}
+		} catch (Exception e) {
+			log.printErr(e);
+		} finally {
+			connector.close(rs);
+			connector.close(pstmt);
+		}
+		return isFound;
+	}
+
+	public void insertPatentHeader(PatentDocno oDocno) throws Exception {
 		// if duplicate familyid+countrycode+docno+kindcode then not insert
 		if (!(StringUtils.isEmpty(oDocno.familyid) || StringUtils.isEmpty(oDocno.number)
 				|| StringUtils.isEmpty(oDocno.country))) {
-			if (null == con) {
-				System.out.println(String.format("no connection : %s.%s.%s will be not added!", oDocno.country,
-						oDocno.number, oDocno.kind));
-			} else {
-				StringBuilder sbQuery = new StringBuilder("INSERT INTO ").append(TAB_DOCNO)
-						.append(" (family_id, country_code, doc_no, kind_code) select '").append(oDocno.familyid)
-						.append("', '").append(oDocno.country).append("', '").append(oDocno.number).append("', '")
-						.append(oDocno.kind).append("' from dual WHERE NOT EXISTS (select 1 from ").append(TAB_DOCNO)
-						.append(" where family_id='").append(oDocno.familyid).append("'").append(" and country_code='")
-						.append(oDocno.country).append("' and doc_no='").append(oDocno.number)
-						.append("' and kind_code='").append(oDocno.kind).append("');");
-				PreparedStatement pstmt = null;
-				try {
-					pstmt = con.prepareStatement(sbQuery.toString());
-					pstmt.executeUpdate(sbQuery.toString());
-					System.out.println(String.format("Family Id %s added : %s.%s.%s", oDocno.familyid, oDocno.country,
-							oDocno.number, oDocno.kind));
-				} catch (Exception e) {
-					e.printStackTrace();
-				} finally {
-					close(pstmt);
-				}
+			con = connector.get(con);
+			StringBuilder sbQuery = new StringBuilder("INSERT INTO ").append(TAB_DOCNO).append(
+					" (family_id, country_code, doc_no, kind_code, dt_created, dt_updated) values (?, ?, ?, ?, sysdate(), sysdate());");
+			PreparedStatement pstmt = null;
+			try {
+				con = connector.get(con);
+				pstmt = con.prepareStatement(sbQuery.toString());
+				int n = 1;
+				pstmt.setString(n++, oDocno.familyid);
+				pstmt.setString(n++, oDocno.country);
+				pstmt.setString(n++, oDocno.number);
+				pstmt.setString(n++, oDocno.kind);
+				pstmt.executeUpdate();
+				log.print(String.format("Family Id %s added : %s.%s.%s", oDocno.familyid, oDocno.country, oDocno.number,
+						oDocno.kind));
+			} catch (Exception e) {
+				log.writeErr(e);
+			} finally {
+				connector.close(pstmt);
 			}
 		}
 	}
 
-	public JSONArray listDocnoByPair(String sourcelang, String targetlang) throws Exception {
-		JSONArray jarr = new JSONArray();
-		StringBuilder sbQuery = new StringBuilder("select * from ").append(TAB_DOCNO)
-				.append(" where family_id in (select family_id from ").append(TAB_DOCNO)
-				.append(" where country_code in (?,?) GROUP BY family_id HAVING COUNT(family_id) > 1)")
-				.append(" and country_code in (?,?) order by family_id;");
-		Connection con = null;
+	public List<Map<String, PatentDocno>> listDocnoByPair(String sourcelang, String targetlang) throws Exception {
+		List<Map<String, PatentDocno>> list = new ArrayList<Map<String, PatentDocno>>();
+		StringBuilder sbQuery = new StringBuilder(" SELECT DISTINCT").append(
+				" s.country_code source_country_code ,s.doc_no source_doc_no ,s.kind_code source_kind_code ,s.family_id source_family_id")
+				.append(" ,t.country_code target_country_code ,t.doc_no target_doc_no ,t.kind_code target_kind_code ,t.family_id target_family_id")
+				.append(" FROM ")//.append(TAB_DOCNO).append(" t inner join")
+				.append(" (SELECT source.country_code ,source.doc_no ,source.kind_code ,source.family_id")
+				.append(" FROM ").append(TAB_DOCNO).append(" source")
+				.append(" where source.country_code = ? ORDER by source.family_id ) s")
+				.append(" , (SELECT target.country_code , target.doc_no , target.kind_code , target.family_id")
+				.append(" FROM ").append(TAB_DOCNO).append(" target")
+				.append(" where target.country_code = ? ORDER by target.family_id ) t")
+				.append(" where s.family_id = t.family_id;");
+//				.append(" where t.country_code = ? ORDER by t.family_id;");
 		PreparedStatement pstmt = null;
 		ResultSet rs = null;
 		try {
-			con = getDBConnection();
+			log.print("RETRIEVING ::::::::::::::::::::::::: ");
+			Instant start = Instant.now();
+
+			con = connector.get(con);
 			pstmt = con.prepareStatement(sbQuery.toString());
 			int n = 1;
 			pstmt.setString(n++, sourcelang);
 			pstmt.setString(n++, targetlang);
-			pstmt.setString(n++, sourcelang);
-			pstmt.setString(n++, targetlang);
 			rs = pstmt.executeQuery();
+
+			Instant finish = Instant.now();
+			int nRow = 0;
+			if (rs != null) {
+				rs.last(); // moves cursor to the last row
+				nRow = rs.getRow(); // get row id
+				rs.beforeFirst();
+			}
+			log.print(String.format("Retrieving time %s Millis with %s rows",
+					Duration.between(start, finish).toMillis(), nRow));
+			log.print("MAPPING :::::::::::::::::::::::::::: ");
+			start = Instant.now();
+
 			while (rs.next()) {
 				// convert result set into object
-				JSONObject jtmp = new JSONObject();
-				jtmp.put("family_id", rs.getString("family_id"));
-				jtmp.put("country_code", rs.getString("country_code"));
-				jtmp.put("doc_no", rs.getString("doc_no"));
-				jtmp.put("kind_code", rs.getString("kind_code"));
-
-				boolean isNew = true;
-				JSONObject jobj = new JSONObject();
-				// find matched family_id
-				for (int i = 0; i < jarr.length(); i++) {
-					JSONObject jo = jarr.getJSONObject(i);
-					if (jtmp.getString("family_id").equals(jo.getString("family_id"))) {
-						isNew = false;
-						jobj = jo;
-						break;
-					}
-				}
-
-				// initial list of source and target
-				JSONObject jsource = jobj.has("source") ? jobj.getJSONObject("source") : new JSONObject() {
-					{
-						put("country", sourcelang);
-						put("members", new JSONArray());
-					}
-				};
-				JSONObject jtarget = jobj.has("target") ? jobj.getJSONObject("target") : new JSONObject() {
-					{
-						put("country", targetlang);
-						put("members", new JSONArray());
-					}
-				};
-
-				// add result set object into source/target members
-				if (jtmp.getString("country_code").equals(jsource.getString("country"))) {
-					jsource.getJSONArray("members").put(jtmp);
-				} else if (jtmp.getString("country_code").equals(jtarget.getString("country"))) {
-					jtarget.getJSONArray("members").put(jtmp);
-				}
-
-				jobj.put("family_id", jtmp.getString("family_id"));
-				jobj.put("source", jsource);
-				jobj.put("target", jtarget);
-				if (isNew) {
-					jarr.put(jobj);
-				}
+				PatentDocno oSource = new PatentDocno();
+				PatentDocno oTarget = new PatentDocno();
+				oSource.familyid = rs.getString("source_family_id");
+				oSource.country = rs.getString("source_country_code");
+				oSource.number = rs.getString("source_doc_no");
+				oSource.kind = rs.getString("source_kind_code");
+				oTarget.familyid = rs.getString("target_family_id");
+				oTarget.country = rs.getString("target_country_code");
+				oTarget.number = rs.getString("target_doc_no");
+				oTarget.kind = rs.getString("target_kind_code");
+				Map<String, PatentDocno> map = new HashMap<String, PatentDocno>();
+				map.put("source", oSource);
+				map.put("target", oTarget);
+				list.add(map);
 			}
+
+			finish = Instant.now();
+			log.print(String.format("Mapping time %s Millis", Duration.between(start, finish).toMillis()));
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.printErr(e);
 		} finally {
-			close(rs);
-			close(pstmt);
-			close(con);
+			connector.close(rs);
+			connector.close(pstmt);
+			connector.close(con);
 		}
-		return jarr;
+		return list;
 	}
 
 	protected Integer getTotalResultCount(String content) {
@@ -477,13 +551,29 @@ public class Patent extends PatentData {
 		return result;
 	}
 
-	protected List<String> listStringPattern(String patternString, String text) {
+	public List<String> listStringPattern(String patternString, String text) {
 		List<String> list = new ArrayList<String>();
 		Matcher matcher = Pattern.compile(patternString).matcher(text);
 		while (matcher.find()) {
 			list.add(matcher.group(1));
 		}
 		return list;
+	}
+
+	public String getOptionValue(String option, String line) {
+		String[] arr = line.trim().split("-" + option);
+		return arr.length > 1 ? arr[1].trim().split(" ")[0].trim() : "";
+	}
+
+	protected String getOptionConfig(String line) throws Exception {
+		String sConfigPath = "";
+		if (line.matches(".*(\\-C).*")) {
+			sConfigPath = getOptionValue("C", line);
+			if (StringUtils.isEmpty(sConfigPath) || !sConfigPath.matches("(?i).*\\.json")) {
+				throw new Exception("Expect a JSON file: -C \"config/path/patent.json\"");
+			}
+		}
+		return sConfigPath;
 	}
 
 	protected void writeSearchResult(Date date, String pattern, File folderOutput, String content, Integer rangeBegin,
@@ -506,11 +596,11 @@ public class Patent extends PatentData {
 	}
 	// -------------------------------------------------------------------------------
 
-	private String getAttribute(XMLEvent event, String attName) throws XMLStreamException {
+	protected String getAttribute(XMLEvent event, String attName) throws XMLStreamException {
 		String value = "";
-		Iterator<Attribute> iter = event.asStartElement().getAttributes();
+		Iterator<?> iter = event.asStartElement().getAttributes();
 		while (iter.hasNext()) {
-			Attribute attribute = iter.next();
+			Attribute attribute = (Attribute) iter.next();
 			if (attribute.getName().toString().equals(attName)) {
 				value = attribute.getValue();
 				break;
@@ -519,7 +609,7 @@ public class Patent extends PatentData {
 		return value;
 	}
 
-	private String getCharacterData(XMLEvent event, XMLEventReader eventReader) throws XMLStreamException {
+	protected String getCharacterData(XMLEvent event, XMLEventReader eventReader) throws XMLStreamException {
 		event = eventReader.nextEvent();
 		return (event instanceof Characters) ? event.asCharacters().getData() : "";
 	}
@@ -530,51 +620,5 @@ public class Patent extends PatentData {
 		return calendar.getActualMaximum(Calendar.DAY_OF_MONTH);
 	}
 
-	class PatentDocno {
-		String type = "", country = "", number = "", kind = "", date = "", familyid = "";
-	}
-
-	private String TAB_DOCNO = "patent_docno";
-
-	private Connection getDBConnection() throws Exception {
-		Connection con = null;
-		try {
-			String sJdbc = configInfo.Jdbc;
-			String sDriver = configInfo.DbDriver;;// ("com.mysql.cj.jdbc.Driver");
-			StringBuilder sbUrl = new StringBuilder(sJdbc).append("://").append(configInfo.DbHost).append(":")
-					.append(configInfo.DbPort).append("/").append(configInfo.DbSchema);
-			Class.forName(sDriver);
-			con = DriverManager.getConnection(sbUrl.toString(), configInfo.DbUser, configInfo.DbPassword);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return con;
-	}
-
-	private void close(ResultSet rs) throws Exception {
-		if (rs != null) {
-			try {
-				rs.close();
-			} catch (SQLException e) {
-			}
-		}
-	}
-
-	private void close(PreparedStatement pstmt) throws Exception {
-		if (pstmt != null) {
-			try {
-				pstmt.close();
-			} catch (SQLException e) {
-			}
-		}
-	}
-
-	private void close(Connection con) throws Exception {
-		if (con != null) {
-			try {
-				con.close();
-			} catch (SQLException e) {
-			}
-		}
-	}
+	protected String TAB_DOCNO = "patent_docno";
 }

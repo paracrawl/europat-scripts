@@ -2,38 +2,21 @@ package patentdata.utils;
 
 import java.io.File;
 import java.io.InputStream;
-import java.io.StringWriter;
-import java.net.URI;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.http.Header;
-import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
-import org.apache.http.NameValuePair;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.params.BasicHttpParams;
-import org.apache.http.params.HttpParams;
-import org.json.JSONObject;
 
 import patentdata.utils.Config.ConfigInfo;
 
-@SuppressWarnings("deprecation")
 public class PatentData {
 
 	protected Common common = new Common();
@@ -41,6 +24,7 @@ public class PatentData {
 	protected ConfigInfo configInfo = null;
 
 	protected Log log = null;
+	protected Connector connector = null;
 
 	private void initial(String path) throws Exception {
 		try {
@@ -58,74 +42,106 @@ public class PatentData {
 
 	public String SearchPatents(String service, String[] constituents, String datePattern, Date dateBegin, Date dateEnd,
 			Integer rangeBegin, Integer rangeEnd, String countryCode) throws Exception {
-		StringBuilder sbLink = new StringBuilder(configInfo.ServiceURL).append("/").append(service).append("/search");
-		if (null != constituents)
-			sbLink.append("/").append(String.join(",", constituents));
+		String contents = "";
+		StringBuilder sbLink = new StringBuilder();
+		try {
+			sbLink = new StringBuilder(configInfo.ServiceURL).append("/").append(service).append("/search");
+			if (null != constituents)
+				sbLink.append("/").append(String.join(",", constituents));
 
-		StringBuilder sbCql = new StringBuilder().append("pd=\"").append(formatDate(dateBegin, datePattern))
-				.append((null != dateBegin && null != dateEnd ? ":" : "")).append(formatDate(dateEnd, datePattern))
-				.append("\"");
-		if (!StringUtils.isEmpty(countryCode))
-			sbCql.append(" ").append(countryCode);
+			StringBuilder sbCql = new StringBuilder().append("pd=\"").append(formatDate(dateBegin, datePattern))
+					.append((null != dateBegin && null != dateEnd ? ":" : "")).append(formatDate(dateEnd, datePattern))
+					.append("\"");
+			if (!StringUtils.isEmpty(countryCode))
+				sbCql.append(" ").append(countryCode);
 
-		sbCql = new StringBuilder(URLEncoder.encode(sbCql.toString(), StandardCharsets.UTF_8.toString()))
-				.append(formatRange(rangeBegin, rangeEnd, "&Range="));
-
-		return getContent(new URL(formatUrl(sbLink.toString()) + "?q=" + sbCql.toString()));
+			sbCql = new StringBuilder(URLEncoder.encode(sbCql.toString(), StandardCharsets.UTF_8.toString()))
+					.append(formatRange(rangeBegin, rangeEnd, "&Range="));
+			contents = getContent(new URL(formatUrl(sbLink.toString()) + "?q=" + sbCql.toString()));
+		} catch (Exception e) {
+			log.printErr(e, sbLink.toString());
+		}
+		return contents;
 	}
 
 	public String ListFamily(String referenceType, String inputFormat, String documentNumber, String[] constituents)
 			throws Exception {
-		StringBuilder sbLink = new StringBuilder(configInfo.ServiceURL).append("/family").append("/")
-				.append(referenceType).append("/").append(inputFormat).append("/").append(documentNumber);
-		if (null != constituents)
-			sbLink.append("/").append(String.join(",", constituents));
-		return getContent(formatUrl(sbLink.toString()));
+		String contents = "";
+		StringBuilder sbLink = new StringBuilder();
+		try {
+			sbLink.append(configInfo.ServiceURL).append("/family").append("/").append(referenceType).append("/")
+					.append(inputFormat).append("/").append(documentNumber);
+			if (null != constituents)
+				sbLink.append("/").append(String.join(",", constituents));
+			contents = getContent(formatUrl(sbLink.toString()));
+		} catch (Exception e) {
+			log.printErr(e, sbLink.toString());
+		}
+		return contents;
 	}
 
 	public String GetPatentsData(String service, String referenceType, String inputFormat, String[] documentNumber,
 			String endpoint, String[] constituents) throws Exception {
-		StringBuilder sbLink = new StringBuilder(configInfo.ServiceURL).append("/").append(service).append("/")
-				.append(referenceType).append("/").append(inputFormat).append("/")
-				.append(String.join(",", documentNumber));
-		if (!StringUtils.isEmpty(endpoint))
-			sbLink.append("/").append(endpoint);
-		if (null != constituents)
-			sbLink.append("/").append(String.join(",", constituents));
-		return getContent(formatUrl(sbLink.toString()));
+		String contents = "";
+		StringBuilder sbLink = new StringBuilder();
+		try {
+			sbLink = new StringBuilder(configInfo.ServiceURL).append("/").append(service).append("/")
+					.append(referenceType).append("/").append(inputFormat).append("/")
+					.append(String.join(",", documentNumber));
+			if (!StringUtils.isEmpty(endpoint))
+				sbLink.append("/").append(endpoint);
+			if (null != constituents)
+				sbLink.append("/").append(String.join(",", constituents));
+			contents = getContent(formatUrl(sbLink.toString()));
+		} catch (Exception e) {
+			log.printErr(e, sbLink.toString());
+		}
+		return contents;
 	}
 
 	public String GetPatentsFileData(String referenceType, String inputFormat, String[] documentNumber)
 			throws Exception {
-		StringBuilder sbLink = new StringBuilder(configInfo.ServiceURL).append("/")
-				.append(Service.PUBLISHED.getServiceName()).append("/").append(referenceType).append("/")
-				.append(inputFormat).append("/").append(String.join(",", documentNumber)).append("/")
-				.append(PUBLISHED_ENDPOINT.images);
-		return getContent(formatUrl(sbLink.toString()));
+		String contents = "";
+		StringBuilder sbLink = new StringBuilder();
+		try {
+			sbLink = new StringBuilder(configInfo.ServiceURL).append("/").append(Service.PUBLISHED.getServiceName())
+					.append("/").append(referenceType).append("/").append(inputFormat).append("/")
+					.append(String.join(",", documentNumber)).append("/").append(PUBLISHED_ENDPOINT.images);
+			contents = getContent(formatUrl(sbLink.toString()));
+		} catch (Exception e) {
+			log.printErr(e, sbLink.toString());
+		}
+		return contents;
 	}
 
 	public String DownloadPatentFile(String countryCode, String number, String kindCode, Integer pageNo,
 			String outputPath, String extension) throws Exception {
-		StringBuilder sbLink = new StringBuilder(configInfo.ServiceURL).append("/")
-				.append(Service.PUBLISHED.getServiceName()).append("/").append(PUBLISHED_ENDPOINT.images).append("/")
-				.append(countryCode).append("/").append(number).append("/").append(kindCode).append("/fullimage")
-				.append("?Range=").append(pageNo);
+		String res = "";
+		StringBuilder sbLink = new StringBuilder();
+		try {
+			sbLink = new StringBuilder(configInfo.ServiceURL).append("/").append(Service.PUBLISHED.getServiceName())
+					.append("/").append(PUBLISHED_ENDPOINT.images).append("/").append(countryCode).append("/")
+					.append(number).append("/").append(kindCode).append("/fullimage").append("?Range=").append(pageNo);
 
-		URL url = formatUrl(sbLink.toString());
-		HttpResponse httpResponse = goTo(url.toString());
-		if (HttpStatus.SC_BAD_REQUEST == httpResponse.getStatusLine().getStatusCode()) {
-			getToken();
-			httpResponse = goTo(url.toString());
-		}
+			URL url = formatUrl(sbLink.toString());
+			HttpResponse httpResponse = connector.goTo(url.toString());
+			if (HttpStatus.SC_BAD_REQUEST == httpResponse.getStatusLine().getStatusCode()) {
+				connector.getToken();
+				httpResponse = connector.goTo(url.toString());
+			}
 
-		if (HttpStatus.SC_OK == httpResponse.getStatusLine().getStatusCode()) {
-			InputStream inputStream = httpResponse.getEntity().getContent();
-			String filename = countryCode + number + kindCode + "-" + pageNo + "." + extension;
-			Files.copy(inputStream, new File(outputPath, filename).toPath());
-			return "downloaded success";
-		} else {
-			return "downloaded failed";
+			if (HttpStatus.SC_OK == httpResponse.getStatusLine().getStatusCode()) {
+				InputStream inputStream = httpResponse.getEntity().getContent();
+				String filename = countryCode + number + kindCode + "-" + pageNo + "." + extension;
+				Files.copy(inputStream, new File(outputPath, filename).toPath());
+				res = "downloaded success";
+			} else {
+				res = "downloaded failed";
+			}
+		} catch (Exception e) {
+			log.printErr(e, sbLink.toString());
 		}
+		return res;
 	}
 
 	public enum REF_TYPE {
@@ -246,20 +262,13 @@ public class PatentData {
 		return new URL(sUrl.replaceAll("(?i)(?<!(http:|https:))/+", "/"));
 	}
 
-	private String toString(InputStream inputStream) throws Exception {
-		StringWriter writer = new StringWriter();
-		IOUtils.copy(inputStream, writer, "UTF-8");
-		return writer.toString().trim();
-	}
-
 	private String getContent(URL url) throws Exception {
-		HttpResponse httpResponse = goTo(url.toString());
-		String output = toString(httpResponse.getEntity().getContent());
+		HttpResponse httpResponse = connector.goTo(url.toString());
+		String output = connector.toString(httpResponse.getEntity().getContent());
 		if (HttpStatus.SC_OK != httpResponse.getStatusLine().getStatusCode()) {
-			log.printErr(new StringBuilder(url.toString()).append("\n").append(output).toString());
 			if (output.contains("<message>invalid_access_token</message>")) {
-				getToken();
-				output = toString(goTo(url.toString()).getEntity().getContent());
+				connector.getToken();
+				output = connector.toString(connector.goTo(url.toString()).getEntity().getContent());
 			} else if (output.contains("<code>CLIENT.RobotDetected</code>")) {
 				Integer n = 3;
 				log.print(String.format("CLIENT.RobotDetected. Wait %d seconds to reconnect...", n));
@@ -268,61 +277,6 @@ public class PatentData {
 			}
 		}
 		return output;
-	}
-
-	private HttpResponse goTo(String url) throws Exception {
-		HttpResponse httpResponse = null;
-		try {
-			if (common.IsEmpty(configInfo.AccessToken))
-				getToken();
-
-			URI uri = new URI(url);
-			HttpGet httpRequest = new HttpGet(uri);
-			httpRequest.addHeader("Authorization", "Bearer " + configInfo.AccessToken);
-
-			HttpHost target = new HttpHost(uri.getHost(), -1, uri.getScheme());
-			httpResponse = new DefaultHttpClient().execute(target, httpRequest);
-			System.out.println(String.format("%s : %s", httpResponse.getStatusLine(), url));
-		} catch (Exception e) {
-			e.printStackTrace();
-			throw e;
-		}
-		return httpResponse;
-	}
-
-	private void getToken() throws Exception {
-		try {
-			/* prepare data for HttpPost */
-			URI uri = new URI(configInfo.AuthenURL);
-
-			String auth = Base64
-					.encodeBase64String((configInfo.ConsumerKey + ":" + configInfo.ConsumerSecret).getBytes());
-
-			HttpParams params = new BasicHttpParams();
-			params.setParameter("grant_type", "client_credentials");
-
-			ArrayList<NameValuePair> postParameters = new ArrayList<NameValuePair>();
-			postParameters.add(new BasicNameValuePair("grant_type", "client_credentials"));
-
-			HttpHost target = new HttpHost(uri.getHost(), -1, uri.getScheme());
-
-			/* set HttpPost to get HttpResponse */
-			HttpPost httpRequest = new HttpPost(uri);
-			httpRequest.addHeader("Authorization", "Basic " + auth);
-			httpRequest.addHeader("Content-Type", "application/x-www-form-urlencoded");
-			httpRequest.setParams(params);
-			httpRequest.setEntity(new UrlEncodedFormEntity(postParameters, "UTF-8"));
-			HttpResponse httpResponse = new DefaultHttpClient().execute(target, httpRequest);
-
-			String output = toString(httpResponse.getEntity().getContent());
-
-			JSONObject jToken = common.getJSONObject(output);
-			// configInfo.AccessToken = common.getJSONValue(jToken, "access_token");
-			config.updateToken(common.getJSONValue(jToken, "access_token"));
-		} catch (Exception e) {
-			e.printStackTrace();
-			throw e;
-		}
 	}
 
 }

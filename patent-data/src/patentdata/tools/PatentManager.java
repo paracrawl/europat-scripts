@@ -16,9 +16,9 @@ public class PatentManager {
 		PatentManager oTool = new PatentManager();
 		if (oTool.validateOption(args)) {
 			String line = String.join(" ", args);
-			List<String> list = oTool.listStringPattern("(?i)-(search|extractid|getfamily|getpair)", line);
+			List<String> list = oTool.listStringPattern("(?i)-(search|extractid|getfamily|insertfamily|getpair)", line);
 			if (list.size() > 1)
-				throw new Exception("Select method: -search or -extractid or -getfamily or -getpair");
+				throw new Exception("Select method: -search or -extractid or -getfamily or -insertfamily or -getpair");
 			String method = (String) list.get(0);
 			line = line.replace("-" + method, "").trim();
 			args = line.split(" ");
@@ -28,10 +28,12 @@ public class PatentManager {
 				new ExtractId(args);
 			} else if ("getfamily".equalsIgnoreCase(method)) {
 				new GetFamily(args);
+			} else if ("insertfamily".equalsIgnoreCase(method)) {
+				new InsertFamily(args);
 			} else if ("getpair".equalsIgnoreCase(method)) {
 				new GetPair(args);
 			} else {
-				throw new Exception("Option should be \"-search\" or \"-extractid\" or \"-getfamily\" or \"-getpair\"");
+				throw new Exception("Option should be \"-search\" or \"-extractid\" or \"-getfamily\" or \"-insertfamily\"  or \"-getpair\"");
 			}
 		}
 	}
@@ -94,7 +96,6 @@ class Search extends PatentManager {
 				if (!sDate.matches("\\d{8}"))
 					throw new Exception("Date should be in YYYYMMDD format.");
 
-				// TODO add filter
 				new Patent(sConfigPath).getPatentByDate(sDate);
 			}
 			System.out.println("finished");
@@ -141,10 +142,6 @@ class ExtractId extends PatentManager {
 				if (sInputPath == null || sInputPath.length() == 0)
 					throw new Exception("Required: -I <InputPath>");
 
-				String sOutputPath = getOptionValue("O", line);
-				if (sOutputPath == null || sOutputPath.length() == 0)
-					throw new Exception("Required: -O <OutputPath>");
-
 				File fileInput = new File(sInputPath);
 				if (!fileInput.exists())
 					throw new Exception("InputPath is not exist.");
@@ -152,13 +149,16 @@ class ExtractId extends PatentManager {
 						&& !"xml".equalsIgnoreCase(FilenameUtils.getExtension(fileInput.toString())))
 					throw new Exception("InputPath must be a XML file.");
 
+				String sOutputPath = getOptionValue("O", line);
+				if (sOutputPath == null || sOutputPath.length() == 0)
+					throw new Exception("Required: -O <OutputPath>");
+
 				File fileOutput = new File(sOutputPath);
 				String sOutExt = FilenameUtils.getExtension(fileOutput.toString());
 				if (!StringUtils.isEmpty(sOutExt) && !"txt".equalsIgnoreCase(sOutExt))
 					throw new Exception("OutputPath must be a TXT file.");
 
-				// TODO input & output support both file & folder
-				new Patent(getOptionConfig(line)).getPatentIds(fileInput, new File(sOutputPath));
+				new Patent(getOptionConfig(line)).getPatentIds(fileInput, fileOutput);
 			}
 			System.out.println("finished");
 		} catch (Exception e) {
@@ -169,7 +169,7 @@ class ExtractId extends PatentManager {
 
 	private boolean validateMandatory(String[] args) {
 		try {
-			if (args == null || args.length == 0 || args.length < 4 || args[0].equals("--help")) {
+			if (args == null || args.length == 0 || args.length < 2 || args[0].equals("--help")) {
 				System.out.println("------------------------");
 				System.out.println("Parameters");
 				System.out.println("------------------------");
@@ -203,14 +203,19 @@ class GetFamily extends PatentManager {
 				String line = String.join(" ", args);
 				String sConfigPath = getOptionConfig(line);
 
+				String sOutputFolder = getOptionValue("O", line);
+				if (sOutputFolder == null || sOutputFolder.length() == 0)
+					throw new Exception("Required: -O <OutputFolder>");
+				File folderOutput = new File(sOutputFolder);
+
 				if (line.matches(".*(\\-I).*")) {
 					File fileInput = new File(getOptionValue("I", line));
 					if (!fileInput.exists())
 						throw new Exception("InputPath is not exist.");
 
-					new Patent(sConfigPath).getFamily(fileInput);
+					new Patent(sConfigPath).getFamily(fileInput, folderOutput);
 				} else if (line.matches(".*(\\-D).*")) {
-					new Patent(sConfigPath).getFamily(getOptionValue("D", line));
+					new Patent(sConfigPath).getFamily(getOptionValue("D", line) ,folderOutput);
 				} else {
 					throw new Exception("Required: -I <InputPath> or -D <DocId> ");
 				}
@@ -230,14 +235,65 @@ class GetFamily extends PatentManager {
 				System.out.println("------------------------");
 				System.out.println(
 						"1. -I <InputPath> or -D <DocId> (Required): Input file path or folder (TXT only) or Document Id (CountryCode.DocNo.KindCode)");
-				System.out.println("2. -C <ConfigPath> (Optional): Config path (JSON only)");
+				System.out.println("2. -O <OutputFolder> (Required): Output folder");
+				System.out.println("3. -C <ConfigPath> (Optional): Config path (JSON only)");
 				System.out.println("------------------------");
 				System.out.println("Example");
 				System.out.println("------------------------");
 				System.out.println(
-						"java -jar patent.jar -getfamily -I \"input/path/ids_201912.txt\" -C \"config/path/patent.json\"");
+						"java -jar patent.jar -getfamily -I \"input/path/ids_201912.txt\" -O \"output/folder/\" -C \"config/path/patent.json\"");
 				System.out.println(
-						"java -jar patent.jar -getfamily -D \"JP.H07196059.A\" -C \"config/path/patent.json\"");
+						"java -jar patent.jar -getfamily -D \"JP.H07196059.A\" -O \"output/folder/\" -C \"config/path/patent.json\"");
+				System.out.println("------------------------");
+				System.exit(0);
+				return false;
+			} else {
+				return true;
+			}
+		} catch (Exception e) {
+			System.exit(0);
+			return false;
+		}
+	}
+
+}
+
+class InsertFamily extends PatentManager {
+
+	public InsertFamily(String[] args) throws Exception {
+		try {
+			if (validateMandatory(args)) {
+				String line = String.join(" ", args);
+				String sConfigPath = getOptionConfig(line);
+
+				String sInputPath = getOptionValue("I", line);
+				if (sInputPath == null || sInputPath.length() == 0)
+					throw new Exception("Required: -I <InputPath>");
+				
+				File fileInput = new File(getOptionValue("I", line));
+				if (!fileInput.exists())
+					throw new Exception("InputPath is not exist.");
+				new Patent(sConfigPath).insertFamily(fileInput);
+			}
+			System.out.println("finished");
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.exit(0);
+		}
+	}
+
+	private boolean validateMandatory(String[] args) {
+		try {
+			if (args == null || args.length == 0 || args.length < 2 || args[0].equals("--help")) {
+				System.out.println("------------------------");
+				System.out.println("Parameters");
+				System.out.println("------------------------");
+				System.out.println("1. -I <InputPath>(Required): Input file path or folder (TXT only)");
+				System.out.println("2. -C <ConfigPath> (Optional): Config path (JSON only)");
+				System.out.println("------------------------");
+				System.out.println("Example");
+				System.out.println("------------------------");
+				System.out.println("java -jar patent.jar -insertfamily -I \"input/path/family_EP1234567A1.txt\" -C \"config/path/patent.json\"");
 				System.out.println("------------------------");
 				System.exit(0);
 				return false;
