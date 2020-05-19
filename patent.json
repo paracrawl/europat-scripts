@@ -1,0 +1,17 @@
+{
+	"ConsumerKey": "",
+	"ConsumerSecretKey": "",
+	"Protocol": "https",
+	"Host": "ops.epo.org",
+	"AuthenURL": "/3.2/auth/accesstoken",
+	"ServiceURL": "/3.2/rest-services/",
+	"WorkingDir": "/var/Work/patent",
+	"DbDriver": "org.mariadb.jdbc.Driver",
+	"Jdbc": "jdbc:mariadb",
+	"DbHost": "localhost",
+	"DbPort": "3306",
+	"DbSchema": "patent",
+	"DbUser": "",
+	"DbPassword": "",
+	"CCPath": "/work/countrycode.csv"
+}
