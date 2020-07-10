@@ -205,10 +205,10 @@ public class OpsApiHelper {
         // logger.log(String.format("Update: %s", rateInfo));
         if (rateInfo.contains("overloaded")) {
             // arbitrary choice of delay
-            int delay = 10;
-            logger.log(String.format("Server overloaded. Waiting %d seconds...", delay));
+            int delay = 5;
+            logger.log(String.format("Server overloaded. Waiting %d minutes...", delay));
             try {
-                TimeUnit.SECONDS.sleep(delay);
+                TimeUnit.MINUTES.sleep(delay);
             } catch (InterruptedException e) {
                 // ignore
             }
