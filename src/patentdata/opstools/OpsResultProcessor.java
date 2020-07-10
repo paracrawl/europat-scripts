@@ -127,7 +127,7 @@ public abstract class OpsResultProcessor {
     /**
      * Makes a new sorted list from the input.
      */
-    protected static <T extends Comparable> List<T> sort(List<T> values) {
+    protected static <T extends Comparable<? super T>> List<T> sort(List<T> values) {
         List<T> result = new ArrayList<T>(values);
         Collections.sort(result);
         return result;

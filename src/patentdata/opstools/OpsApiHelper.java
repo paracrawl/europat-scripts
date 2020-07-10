@@ -76,8 +76,8 @@ public class OpsApiHelper {
 
     private final Connector connector;
     private final Logger logger;
-    private final Map<String, Map> allowedRates = new HashMap<>();
-    private final Map<String, List> recentCalls = new HashMap<>();
+    private final Map<String, Map<Integer, Date>> allowedRates = new HashMap<>();
+    private final Map<String, List<Date>> recentCalls = new HashMap<>();
     private final String serviceUrl;
 
     public OpsApiHelper(OpsConfigHelper config) throws Exception {
