@@ -285,6 +285,17 @@ public class OpsApiHelper {
             }
             return processResponse(urlString, p);
         }
+        Header rejected = response.getFirstHeader("X-Rejection-Reason");
+        if ("IndividualQuotaPerHour".equals(rejected)) {
+	    int delay = 60;
+            logger.log(String.format("Hourly quota exceeded: retry after %d minutes...", delay));
+            try {
+                TimeUnit.MINUTES.sleep(delay);
+            } catch (InterruptedException e) {
+                // ignore
+            }
+            return processResponse(urlString, p);
+	}
         String output = streamToString(response.getEntity().getContent());
         if (output.contains("<message>invalid_access_token</message>")) {
             // renew credentials then retry once
