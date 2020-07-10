@@ -47,6 +47,11 @@ dependencies {
     testImplementation 'junit:junit:4.12'
 }
 
+tasks.withType(JavaCompile) {
+    options.compilerArgs << '-Xlint:unchecked'
+    options.deprecation = true
+}
+
 application {
     // Define the main class for the application
     mainClassName = 'patentdata.opstools.PDFPatentPipeline'
