@@ -1,4 +1,8 @@
-
+# ignore gradle internals
 .gradle
 
+# ignore output from nohup
+nohup.out*
+
+# ignore build output
 build
