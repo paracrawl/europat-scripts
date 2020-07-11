@@ -90,8 +90,9 @@ public class DownloadPdfPatents {
 
         @Override
         public boolean processContentStream(InputStream inputStream) throws Exception {
-            writer.writePdfFile(getDocInfo(), pageId, inputStream);
-            log(String.format("Saved page %d for %s", pageId, getDocInfo().getDocdbId()));
+            PatentInfo p = getDocInfo();
+            writer.writePdfFile(p, pageId, inputStream);
+            log(String.format("Saved page %d of %d for %s", pageId, p.getNPages(), p.getDocdbId()));
             return true;
         }
 
