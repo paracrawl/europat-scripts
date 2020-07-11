@@ -24,6 +24,7 @@ import java.util.regex.Pattern;
 import javax.net.ssl.SSLException;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.http.ConnectionClosedException;
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
@@ -252,7 +253,7 @@ public class OpsApiHelper {
             }
             try {
                 return processResponse(urlString, p, false);
-            } catch (SSLException e) {
+            } catch (ConnectionClosedException|SSLException e) {
                 retries++;
             }
         }
