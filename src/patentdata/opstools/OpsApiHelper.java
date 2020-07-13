@@ -213,18 +213,9 @@ public class OpsApiHelper {
         }
     }
 
-    private void updateRates(String rateInfo) {
+    private boolean updateRates(String rateInfo) {
         // logger.log(String.format("Update: %s", rateInfo));
-        if (rateInfo.contains("overloaded")) {
-            // arbitrary choice of delay
-            int delay = 5;
-            logger.log(String.format("Server overloaded. Waiting %d minutes...", delay));
-            try {
-                TimeUnit.MINUTES.sleep(delay);
-            } catch (InterruptedException e) {
-                // ignore
-            }
-        }
+        boolean isOverloaded = rateInfo.contains("overloaded");
         Pattern p = Pattern.compile("\\b(\\w+)=\\w+:(\\d+)\\b");
         Matcher m = p.matcher(rateInfo);
         while (m.find()) {
@@ -237,6 +228,7 @@ public class OpsApiHelper {
                 allowedRates.get(service).put(limit, new Date());
             }
         }
+        return isOverloaded;
     }
 
     // -------------------------------------------------------------------------------
@@ -275,8 +267,9 @@ public class OpsApiHelper {
         if (renewCredentials) {
             renewCredentials();
         }
-        boolean retry = false;
-        boolean badCredentials = false;
+        boolean retry;
+        long msDelay = 0;
+        String delayMessage = "";
         CloseableHttpResponse response = getUrlResponse(urlString);
         try {
             Header retryAfter = response.getFirstHeader("Retry-After");
@@ -285,28 +278,25 @@ public class OpsApiHelper {
             int statusCode = response.getStatusLine().getStatusCode();
             if (throttling != null) {
                 logger.log(String.valueOf(throttling));
-                updateRates(throttling.getValue());
+                boolean isOverloaded = updateRates(throttling.getValue());
+                if (isOverloaded) {
+                    // add an arbitrary delay before the next call
+                    int delay = 5;
+                    msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
+                    delayMessage = String.format("Server overloaded. Waiting %d minutes...", delay);
+                }
             }
             if (HttpStatus.SC_OK == statusCode) {
                 // success - log call and process result
                 return p.processServerResponse(response);
             } else if (retryAfter != null) {
-                int millis = Integer.parseInt(retryAfter.getValue());
-                logger.log(String.format("Retry after %d milliseconds...", millis));
-                try {
-                    TimeUnit.MILLISECONDS.sleep(millis);
-                } catch (InterruptedException e) {
-                    // ignore
-                }
+                msDelay = Integer.parseInt(retryAfter.getValue());
+                delayMessage = String.format("Retry after %d milliseconds...", msDelay);
                 retry = true;
             } else if ("IndividualQuotaPerHour".equals(rejection)) {
                 int delay = 60;
-                logger.log(String.format("Hourly quota exceeded: retry after %d minutes...", delay));
-                try {
-                    TimeUnit.MINUTES.sleep(delay);
-                } catch (InterruptedException e) {
-                    // ignore
-                }
+                msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
+                delayMessage = String.format("Hourly quota exceeded: retry after %d minutes...", delay);
                 retry = true;
             } else {
                 String output = streamToString(response.getEntity().getContent());
@@ -314,35 +304,37 @@ public class OpsApiHelper {
                     // no results - log call and inform the application
                     return p.processNoResults();
                 } else if (output.contains("<message>invalid_access_token</message>")) {
-                    badCredentials = true;
+                    // renew credentials then retry once
+                    retry = ! renewCredentials;
+                    renewCredentials = true;
                 } else if (output.contains("<code>CLIENT.RobotDetected</code>")) {
-                    // add an arbitrary delay and then retry
-                    Integer delay = 3;
-                    logger.log(String.format("CLIENT.RobotDetected. Wait %d seconds to reconnect...", delay));
-                    try {
-                        TimeUnit.SECONDS.sleep(delay);
-                    } catch (InterruptedException e) {
-                        // ignore
-                    }
+                    // retry after an arbitrary delay
+                    int delay = 3;
+                    msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.SECONDS);
+                    delayMessage = String.format("CLIENT.RobotDetected. Wait %d seconds to reconnect...", delay);
                     retry = true;
                 } else {
                     // some other issue - log for human inspection
                     logger.log(String.format("Headers: %s", Arrays.asList(response.getAllHeaders())));
                     logger.log(String.format("Output: %s", output));
+                    retry = false;
                 }
             }
         } finally {
             // consume and close the reponse
             EntityUtils.consumeQuietly(response.getEntity());
             response.close();
+            if (msDelay > 0) {
+                logger.log(delayMessage);
+                try {
+                    TimeUnit.MILLISECONDS.sleep(msDelay);
+                } catch (InterruptedException e) {
+                    // ignore
+                }
+            }
         }
         if (retry) {
-            return processResponse(urlString, p);
-        } else if (badCredentials) {
-            // renew credentials then retry once
-            if (! renewCredentials) {
-                return processResponse(urlString, p, true);
-            }
+            return processResponse(urlString, p, renewCredentials);
         }
         return false;
     }
