@@ -264,61 +264,69 @@ public class OpsApiHelper {
         if (renewCredentials) {
             renewCredentials();
         }
+        boolean retry = false;
+        boolean badCredentials = false;
         HttpResponse response = getUrlResponse(urlString);
+        Header retryAfter = response.getFirstHeader("Retry-After");
+        Header rejection = response.getFirstHeader("X-Rejection-Reason");
         Header throttling = response.getFirstHeader("X-Throttling-Control");
+        int statusCode = response.getStatusLine().getStatusCode();
         if (throttling != null) {
             logger.log(String.valueOf(throttling));
             updateRates(throttling.getValue());
         }
-        int statusCode = response.getStatusLine().getStatusCode();
         if (HttpStatus.SC_OK == statusCode) {
             // success - log call and process result
             return p.processServerResponse(response);
-        }
-        Header retry = response.getFirstHeader("Retry-After");
-        if (retry != null) {
-            int millis = Integer.parseInt(retry.getValue());
+        } else if (retryAfter != null) {
+            int millis = Integer.parseInt(retryAfter.getValue());
             logger.log(String.format("Retry after %d milliseconds...", millis));
             try {
                 TimeUnit.MILLISECONDS.sleep(millis);
             } catch (InterruptedException e) {
                 // ignore
             }
-            return processResponse(urlString, p);
-        }
-        Header rejected = response.getFirstHeader("X-Rejection-Reason");
-        if ("IndividualQuotaPerHour".equals(rejected)) {
-	    int delay = 60;
+            retry = true;
+        } else if ("IndividualQuotaPerHour".equals(rejection)) {
+            int delay = 60;
             logger.log(String.format("Hourly quota exceeded: retry after %d minutes...", delay));
             try {
                 TimeUnit.MINUTES.sleep(delay);
             } catch (InterruptedException e) {
                 // ignore
             }
+            retry = true;
+        } else {
+            String output = streamToString(response.getEntity().getContent());
+            if (output.contains("<message>No results found</message>")) {
+                // no results - log call and inform the application
+                return p.processNoResults();
+            } else if (output.contains("<message>invalid_access_token</message>")) {
+                badCredentials = true;
+            } else if (output.contains("<code>CLIENT.RobotDetected</code>")) {
+                // arbitrary sleep then retry
+                Integer delay = 3;
+                logger.log(String.format("CLIENT.RobotDetected. Wait %d seconds to reconnect...", delay));
+                try {
+                    TimeUnit.SECONDS.sleep(delay);
+                } catch (InterruptedException e) {
+                    // ignore
+                }
+                retry = true;
+            } else {
+                // some other issue - log for human inspection
+                logger.log(String.format("Headers: %s", Arrays.asList(response.getAllHeaders())));
+                logger.log(String.format("Output: %s", output));
+            }
+        }
+        if (retry) {
             return processResponse(urlString, p);
-	}
-        String output = streamToString(response.getEntity().getContent());
-        if (output.contains("<message>invalid_access_token</message>")) {
+        } else if (badCredentials) {
             // renew credentials then retry once
             if (! renewCredentials) {
                 return processResponse(urlString, p, true);
             }
-        } else if (output.contains("<code>CLIENT.RobotDetected</code>")) {
-            // arbitrary sleep then retry
-            Integer n = 3;
-            logger.log(String.format("CLIENT.RobotDetected. Wait %d seconds to reconnect...", n));
-            try {
-                TimeUnit.SECONDS.sleep(n);
-            } catch (InterruptedException e) {
-                // ignore
-            }
-            return processResponse(urlString, p);
-        } else if (output.contains("<message>No results found</message>")) {
-            // no results - log call and inform the application
-            return p.processNoResults();
         }
-        logger.log(String.format("Headers: %s", Arrays.asList(response.getAllHeaders())));
-        logger.log(String.format("Output: %s", output));
         return false;
     }
 
