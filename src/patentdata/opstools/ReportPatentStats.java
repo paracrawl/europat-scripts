@@ -1,6 +1,8 @@
 package patentdata.opstools;
 
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Methods for reporting stats about patents.
@@ -12,6 +14,10 @@ import java.util.List;
 public class ReportPatentStats {
 
     public static List<PatentInfo> run(String countryCode, Integer year, List<PatentInfo> info) {
+        Map<String, Integer> titles = new TreeMap<>();
+        Map<String, Integer> abstracts = new TreeMap<>();
+        Map<String, Integer> claims = new TreeMap<>();
+        Map<String, Integer> descriptions = new TreeMap<>();
         int totalPatents = 0;
         int patentsProcessed = 0;
         int withTitle = 0;
@@ -40,6 +46,18 @@ public class ReportPatentStats {
             if (p.hasDescription()) {
                 withDescription++;
             }
+            for (String lang : p.getTitles()) {
+                increment(titles, lang);
+            }
+            for (String lang : p.getAbstracts()) {
+                increment(abstracts, lang);
+            }
+            for (String lang : p.getClaims()) {
+                increment(claims, lang);
+            }
+            for (String lang : p.getDescriptions()) {
+                increment(descriptions, lang);
+            }
             if (p.hasImages()) {
                 withImages++;
             }
@@ -57,15 +75,31 @@ public class ReportPatentStats {
         System.out.println(String.format("Results for %s %d", countryCode, year));
         System.out.println(String.format("%8d patents found", totalPatents));
         System.out.println(String.format("%8d patents fully processed", patentsProcessed));
-        System.out.println(String.format("%8d with title", withTitle));
-        System.out.println(String.format("%8d with abstract", withAbstract));
-        System.out.println(String.format("%8d with claims", withClaims));
-        System.out.println(String.format("%8d with description", withDescription));
-        System.out.println(String.format("%8d with PDFs", withImages));
-        System.out.println(String.format("%8d with all text parts", withAllText));
-        System.out.println(String.format("%8d with needed PDF files", withNeededImages));
-        System.out.println(String.format("%8.1f PDF pages on average (mean)", averageImages));
+        System.out.println(String.format("%8d with any title", withTitle));
+        for (String lang : titles.keySet()) {
+            System.out.println(String.format("%8d with title in language \"%s\"", titles.get(lang), lang));
+        }
+        System.out.println(String.format("%8d with any abstract", withAbstract));
+        for (String lang : abstracts.keySet()) {
+            System.out.println(String.format("%8d with abstract in language \"%s\"", abstracts.get(lang), lang));
+        }
+        System.out.println(String.format("%8d with any claims", withClaims));
+        for (String lang : claims.keySet()) {
+            System.out.println(String.format("%8d with claims in language \"%s\"", claims.get(lang), lang));
+        }
+        System.out.println(String.format("%8d with any description", withDescription));
+        for (String lang : descriptions.keySet()) {
+            System.out.println(String.format("%8d with description in language \"%s\"", descriptions.get(lang), lang));
+        }
+        System.out.println(String.format("%8d with all text parts in any language", withAllText));
+        System.out.println(String.format("%8d with any PDFs", withImages));
+        System.out.println(String.format("%8d with PDFs we want (%d pages total, mean %.1f per patent)", withNeededImages, totalNeededImages, averageImages));
         System.out.println(String.format("%8d with missing information", missingInfo));
         return info;
+    }
+
+    private static void increment(Map<String, Integer> map, String key) {
+        int count = map.containsKey(key) ? map.get(key) : 0;
+        map.put(key, count + 1);
     }
 }
