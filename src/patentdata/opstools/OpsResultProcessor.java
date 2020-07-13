@@ -1,7 +1,6 @@
 package patentdata.opstools;
 
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -10,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 
 /**
@@ -88,7 +86,7 @@ public abstract class OpsResultProcessor {
      * Processes the content stream returned from the OPS server.
      */
     public boolean processContentStream(InputStream stream) throws Exception {
-        return stream == null ? null : processContentString(streamToString(stream));
+        return stream == null ? null : processContentString(OpsApiHelper.streamToString(stream));
     }
 
     /**
@@ -143,9 +141,5 @@ public abstract class OpsResultProcessor {
 
     protected boolean logErr(Exception e, String s) {
         return logger.logErr(e, s) == null;
-    }
-
-    private String streamToString(InputStream inputStream) throws Exception {
-        return inputStream == null ? null : IOUtils.toString(inputStream, StandardCharsets.UTF_8);
     }
 }

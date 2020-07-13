@@ -26,8 +26,9 @@ import javax.net.ssl.SSLException;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.ConnectionClosedException;
 import org.apache.http.Header;
-import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.util.EntityUtils;
 
 import patentdata.utils.Config;
 import patentdata.utils.Connector;
@@ -140,6 +141,16 @@ public class OpsApiHelper {
             return THROTTLE_SEARCH;
         }
         return THROTTLE_OTHER;
+    }
+
+    public static String streamToString(InputStream inputStream) throws Exception {
+        try {
+            return inputStream == null ? "" : IOUtils.toString(inputStream, StandardCharsets.UTF_8);
+        } finally {
+            if (inputStream != null) {
+                inputStream.close();
+            }
+        }
     }
 
     // -------------------------------------------------------------------------------
@@ -266,58 +277,64 @@ public class OpsApiHelper {
         }
         boolean retry = false;
         boolean badCredentials = false;
-        HttpResponse response = getUrlResponse(urlString);
-        Header retryAfter = response.getFirstHeader("Retry-After");
-        Header rejection = response.getFirstHeader("X-Rejection-Reason");
-        Header throttling = response.getFirstHeader("X-Throttling-Control");
-        int statusCode = response.getStatusLine().getStatusCode();
-        if (throttling != null) {
-            logger.log(String.valueOf(throttling));
-            updateRates(throttling.getValue());
-        }
-        if (HttpStatus.SC_OK == statusCode) {
-            // success - log call and process result
-            return p.processServerResponse(response);
-        } else if (retryAfter != null) {
-            int millis = Integer.parseInt(retryAfter.getValue());
-            logger.log(String.format("Retry after %d milliseconds...", millis));
-            try {
-                TimeUnit.MILLISECONDS.sleep(millis);
-            } catch (InterruptedException e) {
-                // ignore
+        CloseableHttpResponse response = getUrlResponse(urlString);
+        try {
+            Header retryAfter = response.getFirstHeader("Retry-After");
+            Header rejection = response.getFirstHeader("X-Rejection-Reason");
+            Header throttling = response.getFirstHeader("X-Throttling-Control");
+            int statusCode = response.getStatusLine().getStatusCode();
+            if (throttling != null) {
+                logger.log(String.valueOf(throttling));
+                updateRates(throttling.getValue());
             }
-            retry = true;
-        } else if ("IndividualQuotaPerHour".equals(rejection)) {
-            int delay = 60;
-            logger.log(String.format("Hourly quota exceeded: retry after %d minutes...", delay));
-            try {
-                TimeUnit.MINUTES.sleep(delay);
-            } catch (InterruptedException e) {
-                // ignore
-            }
-            retry = true;
-        } else {
-            String output = streamToString(response.getEntity().getContent());
-            if (output.contains("<message>No results found</message>")) {
-                // no results - log call and inform the application
-                return p.processNoResults();
-            } else if (output.contains("<message>invalid_access_token</message>")) {
-                badCredentials = true;
-            } else if (output.contains("<code>CLIENT.RobotDetected</code>")) {
-                // arbitrary sleep then retry
-                Integer delay = 3;
-                logger.log(String.format("CLIENT.RobotDetected. Wait %d seconds to reconnect...", delay));
+            if (HttpStatus.SC_OK == statusCode) {
+                // success - log call and process result
+                return p.processServerResponse(response);
+            } else if (retryAfter != null) {
+                int millis = Integer.parseInt(retryAfter.getValue());
+                logger.log(String.format("Retry after %d milliseconds...", millis));
                 try {
-                    TimeUnit.SECONDS.sleep(delay);
+                    TimeUnit.MILLISECONDS.sleep(millis);
+                } catch (InterruptedException e) {
+                    // ignore
+                }
+                retry = true;
+            } else if ("IndividualQuotaPerHour".equals(rejection)) {
+                int delay = 60;
+                logger.log(String.format("Hourly quota exceeded: retry after %d minutes...", delay));
+                try {
+                    TimeUnit.MINUTES.sleep(delay);
                 } catch (InterruptedException e) {
                     // ignore
                 }
                 retry = true;
             } else {
-                // some other issue - log for human inspection
-                logger.log(String.format("Headers: %s", Arrays.asList(response.getAllHeaders())));
-                logger.log(String.format("Output: %s", output));
+                String output = streamToString(response.getEntity().getContent());
+                if (output.contains("<message>No results found</message>")) {
+                    // no results - log call and inform the application
+                    return p.processNoResults();
+                } else if (output.contains("<message>invalid_access_token</message>")) {
+                    badCredentials = true;
+                } else if (output.contains("<code>CLIENT.RobotDetected</code>")) {
+                    // add an arbitrary delay and then retry
+                    Integer delay = 3;
+                    logger.log(String.format("CLIENT.RobotDetected. Wait %d seconds to reconnect...", delay));
+                    try {
+                        TimeUnit.SECONDS.sleep(delay);
+                    } catch (InterruptedException e) {
+                        // ignore
+                    }
+                    retry = true;
+                } else {
+                    // some other issue - log for human inspection
+                    logger.log(String.format("Headers: %s", Arrays.asList(response.getAllHeaders())));
+                    logger.log(String.format("Output: %s", output));
+                }
             }
+        } finally {
+            // consume and close the reponse
+            EntityUtils.consumeQuietly(response.getEntity());
+            response.close();
         }
         if (retry) {
             return processResponse(urlString, p);
@@ -330,12 +347,8 @@ public class OpsApiHelper {
         return false;
     }
 
-    private String streamToString(InputStream inputStream) throws Exception {
-        return inputStream == null ? null : IOUtils.toString(inputStream, StandardCharsets.UTF_8);
-    }
-
-    private HttpResponse getUrlResponse(String urlString) throws Exception {
-        return connector.goTo(urlString);
+    private CloseableHttpResponse getUrlResponse(String urlString) throws Exception {
+        return (CloseableHttpResponse) connector.goTo(urlString);
     }
 
     private void renewCredentials() throws Exception {
