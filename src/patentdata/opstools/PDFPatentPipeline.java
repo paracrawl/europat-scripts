@@ -27,6 +27,7 @@ public class PDFPatentPipeline {
     public static final String STAGE_IMAGES = "images";
     public static final String STAGE_PDF = "pdf";
     public static final String STAGE_SEARCH = "search";
+    public static final String STAGE_STATS = "stats";
 
     // configure the application
     private final OpsConfigHelper config;
@@ -53,9 +54,11 @@ public class PDFPatentPipeline {
         List<String> stages = stagesNeeded(stage);
         System.err.println("Stages: " + stages);
         results = p.runPipeline(countryCode, year, stages);
-        String operation = STAGE_SEARCH.equals(stage) ? "Found" : "Processed";
-        System.err.println(results.subList(0, Math.min(10, results.size())));
-        System.err.println(operation + " " + results.size() + " records");
+        if (! STAGE_STATS.equals(stage)) {
+            String operation = STAGE_SEARCH.equals(stage) ? "Found" : "Processed";
+            System.err.println(results.subList(0, Math.min(10, results.size())));
+            System.err.println(operation + " " + results.size() + " records");
+        }
     }
 
     // -------------------------------------------------------------------------------
@@ -90,6 +93,9 @@ public class PDFPatentPipeline {
                 case STAGE_SEARCH:
                     info = FindPatentIds.run(api, writer, logger, countryCode, year, info);
                     break;
+                case STAGE_STATS:
+                    info = ReportPatentStats.run(countryCode, year, info);
+                    break;
                 default:
                     throw new IllegalArgumentException("Unknown stage " + stage);
                 }
@@ -113,6 +119,7 @@ public class PDFPatentPipeline {
         if (! stages.contains(stage)) {
             switch(stage) {
             case STAGE_SEARCH:
+            case STAGE_STATS:
                 stages.add(stage);
                 break;
             case STAGE_BIBLIO:
