@@ -3,6 +3,8 @@ package patentdata.opstools;
 import patentdata.utils.Config;
 import patentdata.utils.Connector;
 
+import org.apache.commons.codec.binary.Base64;
+
 /**
  * Helper class for configuring our application.
  *
@@ -12,6 +14,8 @@ public class OpsConfigHelper {
 
     private final Connector connector;
     private final Logger logger;
+    private final String authUrl;
+    private final String authString;
     private final String serviceUrl;
     private final String workingDirName;
 
@@ -20,6 +24,8 @@ public class OpsConfigHelper {
         connector = new Connector(config);
         workingDirName = config._config.WorkingDir;
         logger = new Logger(workingDirName);
+        authString = Base64.encodeBase64String((config._config.ConsumerKey + ":" + config._config.ConsumerSecret).getBytes());
+        authUrl = config._config.AuthenURL;
         serviceUrl = config._config.ServiceURL.replaceAll("(?i)(?<!(http:|https:))/+", "/");
     }
 
@@ -35,6 +41,20 @@ public class OpsConfigHelper {
      */
     public Logger getLogger() {
         return logger;
+    }
+
+    /**
+     * Gets the authorisation URL as a String.
+     */
+    public String getAuthUrl() {
+        return authUrl;
+    }
+
+    /**
+     * Gets the authorisation String.
+     */
+    public String getAuthString() {
+        return authString;
     }
 
     /**
