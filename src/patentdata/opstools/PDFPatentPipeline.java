@@ -45,23 +45,27 @@ public class PDFPatentPipeline {
     }
 
     public static void main(String... args) throws Exception {
-        List<PatentInfo> results = new ArrayList<>();
         PDFPatentPipeline p = new PDFPatentPipeline(args[0]);
         int nArgs = args.length;
         String countryCode = args[1];
         Integer year = Integer.valueOf(args[2]);
         String stage = nArgs > 3 ? args[3] : STAGE_PDF;
-        List<String> stages = stagesNeeded(stage);
-        System.err.println("Stages: " + stages);
-        results = p.runPipeline(countryCode, year, stages);
-        if (! STAGE_STATS.equals(stage)) {
-            String operation = STAGE_SEARCH.equals(stage) ? "Found" : "Processed";
-            System.err.println(results.subList(0, Math.min(10, results.size())));
-            System.err.println(operation + " " + results.size() + " records");
-        }
+        p.runPipeline(countryCode, year, stage);
     }
 
     // -------------------------------------------------------------------------------
+
+    public List<PatentInfo> runPipeline(String countryCode, Integer year, String stage) throws Exception {
+        List<String> stages = stagesNeeded(stage);
+        logger.log(String.format("Processing %s %d through stages: ", countryCode, year) + stages);
+        List<PatentInfo> results = runPipeline(countryCode, year, stages);
+        if (! STAGE_STATS.equals(stage)) {
+            logger.log(String.valueOf(results.subList(0, Math.min(10, results.size()))));
+            String operation = STAGE_SEARCH.equals(stage) ? "Found" : "Processed";
+            logger.log(String.format("%s %d records for %s %d", operation, results.size(), countryCode, year));
+        }
+        return results;
+    }
 
     public List<PatentInfo> runPipeline(String countryCode, Integer year, List<String> stages) throws Exception {
         PatentResultWriter writer = new PatentResultWriter(config.getWorkingDirName(), countryCode, year);
