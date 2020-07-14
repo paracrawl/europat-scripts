@@ -3,6 +3,7 @@ package patentdata.opstools;
 import java.io.InputStream;
 import java.io.StringWriter;
 
+import java.net.SocketTimeoutException;
 import java.net.URI;
 
 import java.nio.charset.StandardCharsets;
@@ -36,6 +37,7 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.conn.ConnectTimeoutException;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
@@ -270,7 +272,7 @@ public class OpsApiHelper {
             }
             try {
                 return processResponse(client, urlString, p, false);
-            } catch (ConnectionClosedException|SSLException e) {
+            } catch (ConnectionClosedException|SSLException|ConnectTimeoutException|SocketTimeoutException e) {
                 retries++;
             }
         }
