@@ -2,6 +2,9 @@ package patentdata.opstools;
 
 import java.io.InputStream;
 import java.io.StringWriter;
+
+import java.net.URI;
+
 import java.nio.charset.StandardCharsets;
 
 import java.time.Duration;
@@ -24,14 +27,21 @@ import java.util.regex.Pattern;
 import javax.net.ssl.SSLException;
 
 import org.apache.commons.io.IOUtils;
+
 import org.apache.http.ConnectionClosedException;
 import org.apache.http.Header;
 import org.apache.http.HttpStatus;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 
-import patentdata.utils.Config;
-import patentdata.utils.Connector;
+import org.json.JSONObject;
 
 /**
  * Helper class for calling the OPS API with a set of queries.
@@ -76,15 +86,18 @@ public class OpsApiHelper {
     public static final String THROTTLE_RETRIEVAL = "retrieval";
     public static final String THROTTLE_SEARCH = "search";
 
-    private final Connector connector;
     private final Logger logger;
     private final Map<String, Map<Integer, Date>> allowedRates = new HashMap<>();
     private final Map<String, List<Date>> recentCalls = new HashMap<>();
+    private final String authUrl;
+    private final String authString;
     private final String serviceUrl;
+    private String accessToken = "";
 
     public OpsApiHelper(OpsConfigHelper config) throws Exception {
-        connector = config.getConnector();
         logger = config.getLogger();
+        authUrl = config.getAuthUrl();
+        authString = config.getAuthString();
         serviceUrl = config.getServiceUrl();
     }
 
@@ -98,21 +111,22 @@ public class OpsApiHelper {
     public boolean callApi(OpsQueryGenerator g, OpsResultProcessor p, PatentResultWriter w) throws Exception {
         PatentResultWriter cw = w.getCheckpointWriter();
         p.readCheckpointResults(cw);
-        while (g.hasNext()) {
-            String service = g.getService();
-            // abide by service allowed rate
-            manageAllowedRate(service);
-            // construct API call
-            String urlString = makeUrlString(service, g.getNextQuery());
-            // logger.log(String.format("URL: %s", urlString));
-            if (processResponse(urlString, p)) {
-                logCall(service);
-                p.writeCheckpointResults(cw);
-                continue;
+        try (CloseableHttpClient client = initClient()) {
+            while (g.hasNext()) {
+                String service = g.getService();
+                // abide by service allowed rate
+                manageAllowedRate(service);
+                // construct API call
+                String urlString = makeUrlString(service, g.getNextQuery());
+                if (handleCall(client, urlString, p)) {
+                    logCall(service);
+                    p.writeCheckpointResults(cw);
+                    continue;
+                }
+                // something wrong - stop
+                logger.logErr(String.format("API call failed"));
+                return false;
             }
-            // something wrong - stop
-            logger.logErr(String.format("API call failed"));
-            return false;
         }
         // no more queries - all done
         p.writeResults(w);
@@ -241,7 +255,7 @@ public class OpsApiHelper {
         return buf.toString();
     }
 
-    private boolean processResponse(String urlString, OpsResultProcessor p) throws Exception {
+    private boolean handleCall(CloseableHttpClient client, String urlString, OpsResultProcessor p) throws Exception {
         int retries = 0;
         while (retries < 3) {
             if (retries > 0) {
@@ -255,7 +269,7 @@ public class OpsApiHelper {
                 }
             }
             try {
-                return processResponse(urlString, p, false);
+                return processResponse(client, urlString, p, false);
             } catch (ConnectionClosedException|SSLException e) {
                 retries++;
             }
@@ -263,14 +277,14 @@ public class OpsApiHelper {
         return false;
     }
 
-    private boolean processResponse(String urlString, OpsResultProcessor p, boolean renewCredentials) throws Exception {
+    private boolean processResponse(CloseableHttpClient client, String urlString, OpsResultProcessor p, boolean renewCredentials) throws Exception {
         if (renewCredentials) {
-            renewCredentials();
+            renewCredentials(client);
         }
         boolean retry;
         long msDelay = 0;
         String delayMessage = "";
-        CloseableHttpResponse response = getUrlResponse(urlString);
+        CloseableHttpResponse response = getUrlResponse(client, urlString);
         try {
             Header retryAfter = response.getFirstHeader("Retry-After");
             Header rejection = response.getFirstHeader("X-Rejection-Reason");
@@ -334,18 +348,42 @@ public class OpsApiHelper {
             }
         }
         if (retry) {
-            return processResponse(urlString, p, renewCredentials);
+            return processResponse(client, urlString, p, renewCredentials);
         }
         return false;
     }
 
-    private CloseableHttpResponse getUrlResponse(String urlString) throws Exception {
-        return (CloseableHttpResponse) connector.goTo(urlString);
+    private CloseableHttpResponse getUrlResponse(CloseableHttpClient client, String urlString) throws Exception {
+        if (accessToken.isEmpty()) {
+            renewCredentials(client);
+        }
+        HttpGet request = new HttpGet(new URI(urlString));
+        request.addHeader("Authorization", "Bearer " + accessToken);
+        CloseableHttpResponse response = client.execute(request);
+        logger.log(String.format("%s : %s", response.getStatusLine(), urlString));
+        return response;
     }
 
-    private void renewCredentials() throws Exception {
+    private void renewCredentials(CloseableHttpClient client) throws Exception {
         logger.log(String.format("Renewing credentials..."));
-        connector.getToken();
+        HttpPost request = new HttpPost(new URI(authUrl));
+        request.addHeader("Authorization", "Basic " + authString);
+        request.addHeader("Content-Type", "application/x-www-form-urlencoded");
+        List<BasicNameValuePair> params = Arrays.asList(new BasicNameValuePair("grant_type", "client_credentials"));
+        request.setEntity(new UrlEncodedFormEntity(params, StandardCharsets.UTF_8));
+        try (CloseableHttpResponse response = client.execute(request)) {
+            String output = streamToString(response.getEntity().getContent());
+            accessToken = getJSONValue(new JSONObject(output), "access_token");
+        }
         logger.log(String.format(" ... done"));
+    }
+
+    private static String getJSONValue(JSONObject json, String name) {
+        return (json != null && json.has(name)) ? json.get(name).toString() : null;
+    }
+
+    private static CloseableHttpClient initClient() {
+        RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(5000).setConnectTimeout(5000).setConnectionRequestTimeout(5000).build();
+        return HttpClients.custom().setDefaultRequestConfig(requestConfig).build();
     }
 }
