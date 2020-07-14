@@ -57,7 +57,9 @@ public class PDFPatentPipeline {
 
     public List<PatentInfo> runPipeline(String countryCode, Integer year, String stage) throws Exception {
         List<String> stages = stagesNeeded(stage);
-        logger.log(String.format("Processing %s %d through stages: ", countryCode, year) + stages);
+        if (! STAGE_STATS.equals(stage)) {
+            logger.log(String.format("Processing %s %d through stages: ", countryCode, year) + stages);
+        }
         List<PatentInfo> results = runPipeline(countryCode, year, stages);
         if (! STAGE_STATS.equals(stage)) {
             logger.log(String.valueOf(results.subList(0, Math.min(10, results.size()))));
@@ -72,7 +74,9 @@ public class PDFPatentPipeline {
         // initialise values from the master copy
         List<PatentInfo> info = writer.readInfo();
         for (String stage : stages) {
-            logger.log("** Starting " + stage + " stage **");
+            if (! STAGE_STATS.equals(stage)) {
+                logger.log("** Starting " + stage + " stage **");
+            }
             writer.setCheckpointDir("ops_" + stage);
             try {
                 switch(stage) {
@@ -98,7 +102,7 @@ public class PDFPatentPipeline {
                     info = FindPatentIds.run(api, writer, logger, countryCode, year, info);
                     break;
                 case STAGE_STATS:
-                    info = ReportPatentStats.run(countryCode, year, info);
+                    info = ReportPatentStats.run(writer, countryCode, year, info);
                     break;
                 default:
                     throw new IllegalArgumentException("Unknown stage " + stage);

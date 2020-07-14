@@ -60,6 +60,13 @@ public class PatentResultWriter {
     // -------------------------------------------------------------------------------
 
     /**
+     * Does the information file exist?
+     */
+    public boolean infoFileExists() {
+        return getInfoFile().exists();
+    }
+
+    /**
      * Read patent information from a file in a standard location.
      */
     public List<PatentInfo> readInfo() throws Exception {
