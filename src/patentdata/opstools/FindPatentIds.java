@@ -42,19 +42,16 @@ public class FindPatentIds {
 
         public PatentIdProcessor(Logger logger, String countryCode, Integer year, List<PatentInfo> info) throws Exception {
             super(logger, info);
-            // only run the search once
-            if (info.isEmpty()) {
-                StringBuilder buf = new StringBuilder();
-                if (countryCode != null) {
-                    buf.append(" pn=").append(countryCode);
-                }
-                String basicQuery = buf.toString();
-                if (year == null) {
-                    queries.add(makeEncodedQuery(basicQuery));
-                } else {
-                    allQueries.putAll(generateQueries(basicQuery, year.intValue()));
-                    queries.addAll(allQueries.get(null));
-                }
+            StringBuilder buf = new StringBuilder();
+            if (countryCode != null) {
+                buf.append(" pn=").append(countryCode);
+            }
+            String basicQuery = buf.toString();
+            if (year == null) {
+                queries.add(makeEncodedQuery(basicQuery));
+            } else {
+                allQueries.putAll(generateQueries(basicQuery, year.intValue()));
+                queries.addAll(allQueries.get(null));
             }
         }
 
@@ -108,7 +105,10 @@ public class FindPatentIds {
 
         @Override
         public void readCheckpointResults(PatentResultWriter writer) throws Exception {
-            // nothing to do
+            // only run the search once
+            if (writer.infoFileExists()) {
+                queries.clear();
+            }
         }
 
         @Override
