@@ -1,29 +1,36 @@
 package patentdata.opstools;
 
-import patentdata.utils.Config;
+import java.io.File;
+
+import java.nio.charset.StandardCharsets;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.io.FileUtils;
+
+import org.json.JSONObject;
 
 /**
  * Helper class for configuring our application.
+ *
+ * Configuration values are read from a JSON file.
  *
  * Author: Elaine Farrow
  */
 public class OpsConfigHelper {
 
-    private final Logger logger;
     private final String authUrl;
     private final String authString;
     private final String serviceUrl;
     private final String workingDirName;
+    private final Logger logger;
 
     public OpsConfigHelper(String path) throws Exception {
-        Config config = new Config(path);
-        workingDirName = config._config.WorkingDir;
+        JSONObject json = readConfigFile(path);
+        authString = makeAuthString(json);
+        authUrl = makeUrlString(json, "AuthenURL");
+        serviceUrl = makeUrlString(json, "ServiceURL");
+        workingDirName = json.getString("WorkingDir");
         logger = new Logger(workingDirName);
-        authString = Base64.encodeBase64String((config._config.ConsumerKey + ":" + config._config.ConsumerSecret).getBytes());
-        authUrl = config._config.AuthenURL;
-        serviceUrl = config._config.ServiceURL.replaceAll("(?i)(?<!(http:|https:))/+", "/");
     }
 
     /**
@@ -59,5 +66,29 @@ public class OpsConfigHelper {
      */
     public String getWorkingDirName() {
         return workingDirName;
+    }
+
+    // -------------------------------------------------------------------------------
+
+    private static String makeAuthString(JSONObject json) throws Exception {
+        String consumerKey = json.getString("ConsumerKey");
+        String consumerSecret = json.getString("ConsumerSecretKey");
+        return Base64.encodeBase64String((consumerKey + ":" + consumerSecret).getBytes());
+    }
+
+    private static String makeUrlString(JSONObject json, String name) throws Exception {
+        StringBuilder buf = new StringBuilder();
+        buf.append(json.getString("Protocol")).append("://");
+        buf.append(json.getString("Host"));
+        String endPoint = json.getString(name);
+        if (! endPoint.startsWith("/")) {
+            buf.append("/");
+        }
+        buf.append(endPoint);
+        return buf.toString();
+    }
+
+    private static JSONObject readConfigFile(String path) throws Exception {
+        return new JSONObject(FileUtils.readFileToString(new File(path), StandardCharsets.UTF_8));
     }
 }
