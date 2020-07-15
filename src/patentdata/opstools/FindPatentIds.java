@@ -108,7 +108,7 @@ public class FindPatentIds {
         @Override
         public void readCheckpointResults(PatentResultWriter writer) throws Exception {
             // only run the search once
-            if (writer.readInfo().isEmpty()) {
+            if (writer.infoFileExists()) {
                 queries.clear();
             }
         }
