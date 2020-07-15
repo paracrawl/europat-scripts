@@ -7,9 +7,14 @@
   <Appenders>
     <Console name="Console" target="SYSTEM_ERR">
       <PatternLayout pattern="${defaultPatternLayout}"/>
+      <ThresholdFilter level="ERROR" onMatch="DENY" onMismatch="NEUTRAL"/>
+    </Console>
+    <Console name="ConsoleError" target="SYSTEM_ERR">
+      <PatternLayout pattern="ERROR : ${defaultPatternLayout}"/>
+      <ThresholdFilter level="ERROR" onMatch="ACCEPT" onMismatch="DENY"/>
     </Console>
     <RollingFile name="RollingLogFile" filePattern="${defaultLogDir}/%d{yyyyMMddHH}.log">
-      <PatternLayout pattern="${defaultPatternLayout}"/>
+      <PatternLayout pattern="${defaultPatternLayout}%ex{0}}"/>
       <Policies>
         <TimeBasedTriggeringPolicy/>
       </Policies>
@@ -26,6 +31,7 @@
       <AppenderRef ref="RollingLogFile" level="DEBUG"/>
       <AppenderRef ref="RollingErrFile" level="ERROR"/>
       <AppenderRef ref="Console" level="INFO"/>
+      <AppenderRef ref="ConsoleError" level="ERROR"/>
     </Root>
   </Loggers>
 </Configuration>
