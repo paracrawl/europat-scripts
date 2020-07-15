@@ -44,51 +44,50 @@ public class ReportPatentStats {
         int missingInfo = 0;
         for (PatentInfo p : info) {
             totalPatents++;
-            if (p.checkedTitle() && p.checkedAbstract() && p.checkedClaims() && p.checkedDescription() && p.checkedImages()) {
-                patentsProcessed++;
-            }
             if (p.hasTitle()) {
                 withTitle++;
+                for (String lang : p.getTitles()) {
+                    increment(titles, lang);
+                }
             }
             if (p.hasAbstract()) {
                 withAbstract++;
+                for (String lang : p.getAbstracts()) {
+                    increment(abstracts, lang);
+                }
             }
             if (p.hasClaims()) {
                 withClaims++;
+                for (String lang : p.getClaims()) {
+                    increment(claims, lang);
+                }
             }
             if (p.hasDescription()) {
                 withDescription++;
-            }
-            for (String lang : p.getTitles()) {
-                increment(titles, lang);
-            }
-            for (String lang : p.getAbstracts()) {
-                increment(abstracts, lang);
-            }
-            for (String lang : p.getClaims()) {
-                increment(claims, lang);
-            }
-            for (String lang : p.getDescriptions()) {
-                increment(descriptions, lang);
+                for (String lang : p.getDescriptions()) {
+                    increment(descriptions, lang);
+                }
             }
             if (p.hasImages()) {
                 withImages++;
             }
-            if (p.hasTitle() && p.hasAbstract() && p.hasClaims() && p.hasDescription()) {
-                withAllText++;
-            } else if (p.hasImages()) {
-                withNeededImages++;
-                totalNeededImages += p.getNPages();
-                totalDownloadedImages += writer.countPdfFiles(p);
-            } else {
-                missingInfo++;
+            if (p.checkedTitle() && p.checkedAbstract() && p.checkedClaims() && p.checkedDescription() && p.checkedImages()) {
+                patentsProcessed++;
+                if (p.hasTitle() && p.hasAbstract() && p.hasClaims() && p.hasDescription()) {
+                    withAllText++;
+                } else if (p.hasImages()) {
+                    withNeededImages++;
+                    totalNeededImages += p.getNPages();
+                    totalDownloadedImages += writer.countPdfFiles(p);
+                } else {
+                    missingInfo++;
+                }
             }
         }
         double averageImages = withNeededImages == 0 ? 0 : totalNeededImages/ withNeededImages;
 
         System.out.println(String.format("%8d patents found", totalPatents));
         if (totalPatents > 0) {
-            System.out.println(String.format("%8d patents fully processed", patentsProcessed));
             System.out.println(String.format("%8d with any title", withTitle));
             for (String lang : titles.keySet()) {
                 System.out.println(String.format("%8d with title in language \"%s\"", titles.get(lang), lang));
@@ -105,15 +104,17 @@ public class ReportPatentStats {
             for (String lang : descriptions.keySet()) {
                 System.out.println(String.format("%8d with description in language \"%s\"", descriptions.get(lang), lang));
             }
-            System.out.println(String.format("%8d with all text parts in any language", withAllText));
             System.out.println(String.format("%8d with any PDFs", withImages));
+            System.out.println(String.format("%8d patents fully checked", patentsProcessed));
+            System.out.println(String.format("%8d with all text parts in any language", withAllText));
+            System.out.println(String.format("%8d with missing information", missingInfo));
             System.out.println(String.format("%8d with PDFs we want", withNeededImages));
             if (withNeededImages > 0) {
                 System.out.println(String.format("%8d PDF pages total (mean %.1f per patent)", totalNeededImages, averageImages));
                 System.out.println(String.format("%8d PDF pages downloaded already", totalDownloadedImages));
                 System.out.println(String.format("%8d PDF pages still to download", totalNeededImages - totalDownloadedImages));
             }
-            System.out.println(String.format("%8d patents with missing information", missingInfo));
+            System.out.println(String.format("%8d patents still to check", totalPatents - patentsProcessed));
         }
     }
 
