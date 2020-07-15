@@ -152,6 +152,20 @@ public class PatentResultWriter {
         return true;
     }
 
+    /**
+     * How many of the PDF files for the given patent are downloaded?
+     */
+    public int countPdfFiles(PatentInfo p) {
+        int total = 0;
+        for (int i = 0; i < p.getNPages(); i++) {
+            File f = getPdfFile(p, i+1);
+            if (f.exists()) {
+                total++;
+            }
+        }
+        return total;
+    }
+
     // -------------------------------------------------------------------------------
 
     private File getInfoFile() {

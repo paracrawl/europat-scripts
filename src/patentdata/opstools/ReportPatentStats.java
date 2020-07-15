@@ -16,7 +16,7 @@ public class ReportPatentStats {
     public static boolean run(PatentResultWriter writer, String countryCode, Integer year, List<PatentInfo> info) {
         if (writer.infoFileExists()) {
             System.out.println(String.format("Results for %s %d", countryCode, year));
-            printStats(info);
+            printStats(writer, info);
         } else {
             System.out.println(String.format("No results for %s %d", countryCode, year));
         }
@@ -25,7 +25,7 @@ public class ReportPatentStats {
 
     // -------------------------------------------------------------------------------
 
-    private static void printStats(List<PatentInfo> info) {
+    private static void printStats(PatentResultWriter writer, List<PatentInfo> info) {
         Map<String, Integer> titles = new TreeMap<>();
         Map<String, Integer> abstracts = new TreeMap<>();
         Map<String, Integer> claims = new TreeMap<>();
@@ -40,6 +40,7 @@ public class ReportPatentStats {
         int withAllText = 0;
         int withNeededImages = 0;
         int totalNeededImages = 0;
+        int totalDownloadedImages = 0;
         int missingInfo = 0;
         for (PatentInfo p : info) {
             totalPatents++;
@@ -78,6 +79,7 @@ public class ReportPatentStats {
             } else if (p.hasImages()) {
                 withNeededImages++;
                 totalNeededImages += p.getNPages();
+                totalDownloadedImages += writer.countPdfFiles(p);
             } else {
                 missingInfo++;
             }
@@ -105,8 +107,13 @@ public class ReportPatentStats {
             }
             System.out.println(String.format("%8d with all text parts in any language", withAllText));
             System.out.println(String.format("%8d with any PDFs", withImages));
-            System.out.println(String.format("%8d with PDFs we want (%d pages total, mean %.1f per patent)", withNeededImages, totalNeededImages, averageImages));
-            System.out.println(String.format("%8d with missing information", missingInfo));
+            System.out.println(String.format("%8d with PDFs we want", withNeededImages));
+            if (withNeededImages > 0) {
+                System.out.println(String.format("%8d PDF pages total (mean %.1f per patent)", totalNeededImages, averageImages));
+                System.out.println(String.format("%8d PDF pages downloaded already", totalDownloadedImages));
+                System.out.println(String.format("%8d PDF pages still to download", totalNeededImages - totalDownloadedImages));
+            }
+            System.out.println(String.format("%8d patents with missing information", missingInfo));
         }
     }
 
