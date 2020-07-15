@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
   <Properties>
-    <Property name="defaultLogDir">/tmp/opslogs/</Property>
+    <Property name="defaultLogDir">/tmp/opslogs/logs</Property>
     <Property name="defaultPatternLayout">%d{yyyyMMdd HH:mm:ss.SSS}\t\t%msg%n</Property>
   </Properties>
   <Appenders>
     <Console name="Console" target="SYSTEM_ERR">
       <PatternLayout pattern="${defaultPatternLayout}"/>
     </Console>
-    <RollingFile name="RollingLogFile" filePattern="${defaultLogDir}/logs/%d{yyyyMMddHH}.log">
+    <RollingFile name="RollingLogFile" filePattern="${defaultLogDir}/%d{yyyyMMddHH}.log">
       <PatternLayout pattern="${defaultPatternLayout}"/>
       <Policies>
         <TimeBasedTriggeringPolicy/>
       </Policies>
     </RollingFile>
-    <RollingFile name="RollingErrFile" filePattern="${defaultLogDir}/logs/err_%d{yyyyMMddHH}.log">
+    <RollingFile name="RollingErrFile" filePattern="${defaultLogDir}/err_%d{yyyyMMddHH}.log">
       <PatternLayout pattern="${defaultPatternLayout}"/>
       <Policies>
         <TimeBasedTriggeringPolicy/>

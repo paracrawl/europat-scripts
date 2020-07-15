@@ -1,6 +1,9 @@
 # ignore gradle internals
 .gradle
 
+# ignore Log4J2 config file in res
+res/log4j2.xml
+
 # ignore output from nohup
 nohup.out*
 
