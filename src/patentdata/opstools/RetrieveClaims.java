@@ -9,12 +9,14 @@ import java.util.List;
  */
 public class RetrieveClaims {
 
-    public static List<PatentInfo> run(OpsApiHelper api, PatentResultWriter writer, Logger logger, List<PatentInfo> info) throws Exception {
+    public static boolean run(OpsApiHelper api, PatentResultWriter writer, Logger logger, List<PatentInfo> info) throws Exception {
         ClaimsProcessor p = new ClaimsProcessor(logger, info);
         if (api.callApi(p, p, writer)) {
-            info = p.getInfo();
+            info.clear();
+            info.addAll(p.getInfo());
+            return true;
         }
-        return info;
+        return false;
     }
 
     // -------------------------------------------------------------------------------
@@ -28,7 +30,7 @@ public class RetrieveClaims {
         @Override
         protected boolean shouldProcess(PatentInfo p) {
             if (! p.checkedClaims()) {
-                throw new IllegalStateException("Check for full text first.");
+                throw new IllegalStateException(String.format("Check for full text first (%s).", p.getDocdbId()));
             }
             return p.hasClaims();
         }

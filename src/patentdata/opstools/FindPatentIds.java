@@ -16,12 +16,14 @@ import org.w3c.dom.NodeList;
 
 public class FindPatentIds {
 
-    public static List<PatentInfo> run(OpsApiHelper api, PatentResultWriter writer, Logger logger, String countryCode, Integer year, List<PatentInfo> info) throws Exception {
+    public static boolean run(OpsApiHelper api, PatentResultWriter writer, Logger logger, String countryCode, Integer year, List<PatentInfo> info) throws Exception {
         PatentIdProcessor p = new PatentIdProcessor(logger, countryCode, year, info);
         if (api.callApi(p, p, writer)) {
-            info = p.getInfo();
+            info.clear();
+            info.addAll(p.getInfo());
+            return true;
         }
-        return info;
+        return false;
     }
 
     // -------------------------------------------------------------------------------

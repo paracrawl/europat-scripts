@@ -18,12 +18,14 @@ import org.w3c.dom.NodeList;
  */
 public class FindImages {
 
-    public static List<PatentInfo> run(OpsApiHelper api, PatentResultWriter writer, Logger logger, List<PatentInfo> info) throws Exception {
-        ImageResultProcessor g = new ImageResultProcessor(logger, info);
-        if (api.callApi(g, g, writer)) {
-            info = g.getInfo();
+    public static boolean run(OpsApiHelper api, PatentResultWriter writer, Logger logger, List<PatentInfo> info) throws Exception {
+        ImageResultProcessor p = new ImageResultProcessor(logger, info);
+        if (api.callApi(p, p, writer)) {
+            info.clear();
+            info.addAll(p.getInfo());
+            return true;
         }
-        return info;
+        return false;
     }
 
     // -------------------------------------------------------------------------------

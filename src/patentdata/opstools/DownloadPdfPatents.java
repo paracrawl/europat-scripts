@@ -17,11 +17,10 @@ import java.util.List;
  */
 public class DownloadPdfPatents {
 
-    public static List<PatentInfo> run(OpsApiHelper api, PatentResultWriter writer, Logger logger, List<PatentInfo> info) throws Exception {
+    public static boolean run(OpsApiHelper api, PatentResultWriter writer, Logger logger, List<PatentInfo> info) throws Exception {
         PdfDownloader g = new PdfDownloader(logger, info, writer);
         api.callApi(g, g, writer);
-        // return the input info unchanged
-        return info;
+        return true;
     }
 
     // -------------------------------------------------------------------------------
@@ -105,17 +104,25 @@ public class DownloadPdfPatents {
         }
 
         private static boolean shouldProcess(PatentInfo p) {
+            List<String> missing = new ArrayList<>();
             if (! p.checkedTitle()) {
-                throw new IllegalStateException("Check for title first.");
+                missing.add("title");
             }
             if (! p.checkedAbstract()) {
-                throw new IllegalStateException("Check for abstract first.");
+                missing.add("abstract");
             }
-            if (! p.checkedClaims() || ! p.checkedDescription()) {
-                throw new IllegalStateException("Check for full text first.");
+            if (! p.checkedClaims()) {
+                missing.add("claims");
+            }
+            if (! p.checkedDescription()) {
+                missing.add("description");
             }
             if (! p.checkedImages()) {
-                throw new IllegalStateException("Check for images first.");
+                missing.add("images");
+            }
+            if (! missing.isEmpty()) {
+                String error = String.format("Check for %s first (%s).", String.join(", ", missing), p.getDocdbId());
+                throw new IllegalStateException(error);
             }
             if (p.hasTitle() && p.hasAbstract() && p.hasClaims() && p.hasDescription()) {
                 return false;

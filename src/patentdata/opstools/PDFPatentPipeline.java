@@ -79,33 +79,39 @@ public class PDFPatentPipeline {
             }
             writer.setCheckpointDir("ops_" + stage);
             try {
+                boolean success = true;
                 switch(stage) {
                 case STAGE_BIBLIO:
-                    info = RetrieveBiblio.run(api, writer, logger, info);
+                    success = RetrieveBiblio.run(api, writer, logger, info);
                     break;
                 case STAGE_CLAIMS:
-                    info = RetrieveClaims.run(api, writer, logger, info);
+                    success = RetrieveClaims.run(api, writer, logger, info);
                     break;
                 case STAGE_DESCRIPTION:
-                    info = RetrieveDescriptions.run(api, writer, logger, info);
+                    success = RetrieveDescriptions.run(api, writer, logger, info);
                     break;
                 case STAGE_FULLTEXT:
-                    info = FindFullText.run(api, writer, logger, info);
+                    success = FindFullText.run(api, writer, logger, info);
                     break;
                 case STAGE_IMAGES:
-                    info = FindImages.run(api, writer, logger, info);
+                    success = FindImages.run(api, writer, logger, info);
                     break;
                 case STAGE_PDF:
-                    info = DownloadPdfPatents.run(api, writer, logger, info);
+                    success = DownloadPdfPatents.run(api, writer, logger, info);
                     break;
                 case STAGE_SEARCH:
-                    info = FindPatentIds.run(api, writer, logger, countryCode, year, info);
+                    success = FindPatentIds.run(api, writer, logger, countryCode, year, info);
                     break;
                 case STAGE_STATS:
-                    info = ReportPatentStats.run(writer, countryCode, year, info);
+                    success = ReportPatentStats.run(writer, countryCode, year, info);
                     break;
                 default:
                     throw new IllegalArgumentException("Unknown stage " + stage);
+                }
+                if (! success) {
+                    // log the stage that failed
+                    logger.logErr(stage + " stage failed");
+                    break;
                 }
             } catch (Exception e) {
                 // log the stage that failed

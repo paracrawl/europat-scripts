@@ -13,14 +13,14 @@ import java.util.TreeMap;
  */
 public class ReportPatentStats {
 
-    public static List<PatentInfo> run(PatentResultWriter writer, String countryCode, Integer year, List<PatentInfo> info) {
+    public static boolean run(PatentResultWriter writer, String countryCode, Integer year, List<PatentInfo> info) {
         if (writer.infoFileExists()) {
             System.out.println(String.format("Results for %s %d", countryCode, year));
             printStats(info);
         } else {
             System.out.println(String.format("No results for %s %d", countryCode, year));
         }
-        return info;
+        return true;
     }
 
     // -------------------------------------------------------------------------------
