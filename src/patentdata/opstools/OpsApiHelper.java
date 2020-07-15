@@ -326,6 +326,12 @@ public class OpsApiHelper {
                     // renew credentials then retry once
                     retry = ! renewCredentials;
                     renewCredentials = true;
+                } else if (output.contains("<code>SERVER.DomainAccess</code>")) {
+                    // retry after an arbitrary delay
+                    int delay = 5;
+                    msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
+                    delayMessage = String.format("SERVER.DomainAccess. Wait %d minutes to reconnect...", delay);
+                    retry = true;
                 } else if (output.contains("<code>CLIENT.RobotDetected</code>")) {
                     // retry after an arbitrary delay
                     int delay = 3;
