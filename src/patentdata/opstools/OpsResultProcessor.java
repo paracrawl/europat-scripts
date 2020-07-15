@@ -19,11 +19,6 @@ import org.apache.http.HttpResponse;
 public abstract class OpsResultProcessor {
 
     /**
-     * Logger for logging.
-     */
-    private final Logger logger;
-
-    /**
      * Information about patents, indexed by document ID.
      */
     private final Map<String, PatentInfo> info = new TreeMap<>();
@@ -33,8 +28,7 @@ public abstract class OpsResultProcessor {
     /**
      * Initialise with the given patent information.
      */
-    public OpsResultProcessor(Logger logger, Collection<PatentInfo> inputInfo) {
-        this.logger = logger;
+    public OpsResultProcessor(Collection<PatentInfo> inputInfo) {
         for (PatentInfo p : inputInfo) {
             info.put(p.getDocdbId(), p);
         }
@@ -129,17 +123,5 @@ public abstract class OpsResultProcessor {
         List<T> result = new ArrayList<T>(values);
         Collections.sort(result);
         return result;
-    }
-
-    protected boolean log(String s) {
-        return logger.log(s) == null;
-    }
-
-    protected boolean logErr(String s) {
-        return logger.logErr(s) == null;
-    }
-
-    protected boolean logErr(Exception e, String s) {
-        return logger.logErr(e, s) == null;
     }
 }

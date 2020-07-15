@@ -4,6 +4,9 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
@@ -18,8 +21,8 @@ import org.w3c.dom.NodeList;
  */
 public class FindImages {
 
-    public static boolean run(OpsApiHelper api, PatentResultWriter writer, Logger logger, List<PatentInfo> info) throws Exception {
-        ImageResultProcessor p = new ImageResultProcessor(logger, info);
+    public static boolean run(OpsApiHelper api, PatentResultWriter writer, List<PatentInfo> info) throws Exception {
+        ImageResultProcessor p = new ImageResultProcessor(info);
         if (api.callApi(p, p, writer)) {
             info.clear();
             info.addAll(p.getInfo());
@@ -35,14 +38,15 @@ public class FindImages {
         implements OpsQueryGenerator {
 
         private static final String IMAGE_PREFIX = OpsApiHelper.SERVICE_IMAGES + "/";
+        private static final Logger LOGGER = LogManager.getLogger();
 
         private final List<String> docIds = new ArrayList<>();
         private final List<String> idsWithImages = new ArrayList<>();
         private final String query;
         private int index = -1;
 
-        public ImageResultProcessor(Logger logger, List<PatentInfo> inputInfo) {
-            super(logger, inputInfo);
+        public ImageResultProcessor(List<PatentInfo> inputInfo) {
+            super(inputInfo);
             StringBuilder buf = new StringBuilder();
             buf.append(OpsApiHelper.REF_TYPE_PUBLICATION).append("/");
             buf.append(OpsApiHelper.INPUT_FORMAT_DOCDB).append("/");
@@ -51,7 +55,7 @@ public class FindImages {
             for (PatentInfo p : inputInfo) {
                 String docId = p.getDocdbId();
                 if (p.checkedImages()) {
-                    log("  skipping " + docId);
+                    LOGGER.debug("  skipping " + docId);
                 } else {
                     docIds.add(docId);
                 }
@@ -119,8 +123,8 @@ public class FindImages {
         }
 
         private void processResult(String xmlString) throws Exception {
-            // log("*** Processing images");
-            // log(xmlString);
+            LOGGER.trace("*** Processing images");
+            LOGGER.trace(xmlString);
             Element docEl = OpsXmlHelper.parseResults(xmlString);
             String docId = OpsXmlHelper.getDocNumber(docEl, OpsApiHelper.INPUT_FORMAT_DOCDB);
             PatentInfo p = getInfo(docId);

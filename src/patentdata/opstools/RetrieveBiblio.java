@@ -7,6 +7,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
@@ -17,8 +20,8 @@ import org.w3c.dom.NodeList;
  */
 public class RetrieveBiblio {
 
-    public static boolean run(OpsApiHelper api, PatentResultWriter writer, Logger logger, List<PatentInfo> info) throws Exception {
-        BiblioProcessor p = new BiblioProcessor(logger, info);
+    public static boolean run(OpsApiHelper api, PatentResultWriter writer, List<PatentInfo> info) throws Exception {
+        BiblioProcessor p = new BiblioProcessor(info);
         if (api.callApi(p, p, writer)) {
             info.clear();
             info.addAll(p.getInfo());
@@ -33,6 +36,8 @@ public class RetrieveBiblio {
         extends OpsResultProcessor
         implements OpsQueryGenerator {
 
+        private static final Logger LOGGER = LogManager.getLogger();
+
         private final List<String> docIds = new ArrayList<>();
         private final Map<String, List<PatentContent>> titleMap = new HashMap<>();
         private final Map<String, List<PatentContent>> abstractMap = new HashMap<>();
@@ -40,8 +45,8 @@ public class RetrieveBiblio {
         private final int batchSize = 100;
         private int start = -batchSize;
 
-        protected BiblioProcessor(Logger logger, List<PatentInfo> inputInfo) {
-            super(logger, inputInfo);
+        protected BiblioProcessor(List<PatentInfo> inputInfo) {
+            super(inputInfo);
             StringBuilder buf = new StringBuilder();
             buf.append(OpsApiHelper.REF_TYPE_PUBLICATION).append("/");
             buf.append(OpsApiHelper.INPUT_FORMAT_DOCDB).append("/");
@@ -51,7 +56,7 @@ public class RetrieveBiblio {
                 String docId = p.getDocdbId();
                 if (p.checkedTitle() && p.checkedAbstract() && ! (p.hasTitle() || p.hasAbstract())) {
                     // we know there's no title or abstract -- skip
-                    log("  skipping " + docId);
+                    LOGGER.debug("  skipping " + docId);
                 } else {
                     docIds.add(docId);
                 }
@@ -121,8 +126,8 @@ public class RetrieveBiblio {
         }
 
         private void processResult(String xmlString) throws Exception {
-            // log("*** Processing result");
-            // log(xmlString);
+            LOGGER.trace("*** Processing result");
+            LOGGER.trace(xmlString);
             Element docEl = OpsXmlHelper.parseResults(xmlString);
             NodeList docNodes = docEl.getElementsByTagName("exchange-document");
             for (int i = 0; i < docNodes.getLength(); i++) {

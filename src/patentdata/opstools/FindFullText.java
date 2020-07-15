@@ -5,6 +5,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
@@ -19,8 +22,8 @@ import org.w3c.dom.NodeList;
  */
 public class FindFullText {
 
-    public static boolean run(OpsApiHelper api, PatentResultWriter writer, Logger logger, List<PatentInfo> info) throws Exception {
-        FullTextProcessor p = new FullTextProcessor(logger, info);
+    public static boolean run(OpsApiHelper api, PatentResultWriter writer, List<PatentInfo> info) throws Exception {
+        FullTextProcessor p = new FullTextProcessor(info);
         if (api.callApi(p, p, writer)) {
             info.clear();
             info.addAll(p.getInfo());
@@ -35,14 +38,16 @@ public class FindFullText {
         extends OpsResultProcessor
         implements OpsQueryGenerator {
 
+        private static final Logger LOGGER = LogManager.getLogger();
+
         private final List<String> docIds = new ArrayList<>();
         private final List<String> idsWithClaims = new ArrayList<>();
         private final List<String> idsWithDescription = new ArrayList<>();
         private final String query;
         private int index = -1;
 
-        public FullTextProcessor(Logger logger, List<PatentInfo> inputInfo) {
-            super(logger, inputInfo);
+        public FullTextProcessor(List<PatentInfo> inputInfo) {
+            super(inputInfo);
             StringBuilder buf = new StringBuilder();
             buf.append(OpsApiHelper.REF_TYPE_PUBLICATION).append("/");
             buf.append(OpsApiHelper.INPUT_FORMAT_DOCDB).append("/");
@@ -51,7 +56,7 @@ public class FindFullText {
             for (PatentInfo p : inputInfo) {
                 String docId = p.getDocdbId();
                 if (p.checkedClaims() || p.checkedDescription()) {
-                    log("  skipping " + docId);
+                    LOGGER.debug("  skipping " + docId);
                 } else {
                     docIds.add(docId);
                 }
@@ -129,8 +134,8 @@ public class FindFullText {
         }
 
         private void processResult(String xmlString) throws Exception {
-            // log("*** Processing full text");
-            // log(xmlString);
+            LOGGER.trace("*** Processing full text");
+            LOGGER.trace(xmlString);
             Element docEl = OpsXmlHelper.parseResults(xmlString);
             String docId = OpsXmlHelper.getDocNumber(docEl, OpsApiHelper.INPUT_FORMAT_DOCDB);
             List<String> claimsLanguages = new ArrayList<>();

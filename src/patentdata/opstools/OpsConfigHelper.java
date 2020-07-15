@@ -22,7 +22,6 @@ public class OpsConfigHelper {
     private final String authString;
     private final String serviceUrl;
     private final String workingDirName;
-    private final Logger logger;
 
     public OpsConfigHelper(String path) throws Exception {
         JSONObject json = readConfigFile(path);
@@ -30,14 +29,6 @@ public class OpsConfigHelper {
         authUrl = makeUrlString(json, "AuthenURL");
         serviceUrl = makeUrlString(json, "ServiceURL");
         workingDirName = json.getString("WorkingDir");
-        logger = new Logger(workingDirName);
-    }
-
-    /**
-     * Gets the logger.
-     */
-    public Logger getLogger() {
-        return logger;
     }
 
     /**

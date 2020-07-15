@@ -11,13 +11,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 public class FindPatentIds {
 
-    public static boolean run(OpsApiHelper api, PatentResultWriter writer, Logger logger, String countryCode, Integer year, List<PatentInfo> info) throws Exception {
-        PatentIdProcessor p = new PatentIdProcessor(logger, countryCode, year, info);
+    public static boolean run(OpsApiHelper api, PatentResultWriter writer, String countryCode, Integer year, List<PatentInfo> info) throws Exception {
+        PatentIdProcessor p = new PatentIdProcessor(countryCode, year, info);
         if (api.callApi(p, p, writer)) {
             info.clear();
             info.addAll(p.getInfo());
@@ -34,6 +37,7 @@ public class FindPatentIds {
 
         // OPS API won't allow us to access more than this many results from a single query
         private static final int MAX_RESULTS = 2000;
+        private static final Logger LOGGER = LogManager.getLogger();
 
         private final int batchSize = 100;
         private final Map<String, List<String>> allQueries = new HashMap<>();
@@ -42,8 +46,8 @@ public class FindPatentIds {
         private int queryId = -1;
         private boolean hasMore = false;
 
-        public PatentIdProcessor(Logger logger, String countryCode, Integer year, List<PatentInfo> info) throws Exception {
-            super(logger, info);
+        public PatentIdProcessor(String countryCode, Integer year, List<PatentInfo> info) throws Exception {
+            super(info);
             StringBuilder buf = new StringBuilder();
             if (countryCode != null) {
                 buf.append(" pn=").append(countryCode);
@@ -61,7 +65,7 @@ public class FindPatentIds {
             // skip patent applications for now
             String kind = PatentInfo.getKind(docId);
             if (kind.startsWith("A")) {
-                log("  skipping " + docId);
+                LOGGER.debug("  skipping " + docId);
                 return false;
             }
             return true;
@@ -127,8 +131,8 @@ public class FindPatentIds {
         }
 
         private void processResult(String xmlString) throws Exception {
-            // log("*** Processing patent IDs");
-            // log(xmlString);
+            LOGGER.trace("*** Processing patent IDs");
+            LOGGER.trace(xmlString);
             int rangeEnd = 0;
             int totalResults = 0;
             Element docEl = OpsXmlHelper.parseResults(xmlString);
@@ -141,14 +145,14 @@ public class FindPatentIds {
                 String end = ((Element) nodes.item(0)).getAttribute("end");
                 rangeEnd = Integer.parseUnsignedInt(end);
             }
-            // log(String.format("  total results: %d, range end: %d", totalResults, rangeEnd));
+            LOGGER.trace(String.format("  total results: %d, range end: %d", totalResults, rangeEnd));
             if (totalResults > MAX_RESULTS && isFirstBatch()) {
-                log(String.format("  total results %d is over limit of %d", totalResults, MAX_RESULTS));
+                LOGGER.debug(String.format("  total results %d is over limit of %d", totalResults, MAX_RESULTS));
                 if (expandCurrentQuery()) {
                     // ignore these results and use a smaller granularity instead
                     return;
                 } else {
-                    logErr(String.format("%d results will not be retrieved", totalResults - MAX_RESULTS));
+                    LOGGER.warn(String.format("%d results will not be retrieved", totalResults - MAX_RESULTS));
                 }
             }
 
@@ -164,7 +168,7 @@ public class FindPatentIds {
             }
             if (rangeEnd >= totalResults || rangeEnd >= MAX_RESULTS || nodes.getLength() == 0) {
                 hasMore = false;
-                // log(String.format("No more results for this query"));
+                LOGGER.trace(String.format("No more results for this query"));
             }
         }
 
@@ -176,7 +180,7 @@ public class FindPatentIds {
             String currentQuery = queries.get(queryId);
             if (allQueries.containsKey(currentQuery)) {
                 List<String> childQueries = allQueries.get(currentQuery);
-                // log(String.format("  -> got %d new queries", childQueries.size()));
+                LOGGER.trace(String.format("  -> got %d new queries", childQueries.size()));
                 queries.addAll(queryId+1, childQueries);
                 hasMore = false;
                 return true;
@@ -231,7 +235,7 @@ public class FindPatentIds {
         }
 
         private String makeEncodedQuery(String query) throws Exception {
-            // log(String.format("query: %s", query));
+            LOGGER.trace(String.format("query: %s", query));
             StringBuilder buf = new StringBuilder();
             if (! query.isEmpty()) {
                 buf.append("&q=");

@@ -3,6 +3,9 @@ package patentdata.opstools;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 /**
  * Tool for running a pipeline of steps for downloading patents from
  * the OPS API.
@@ -29,19 +32,17 @@ public class PDFPatentPipeline {
     public static final String STAGE_SEARCH = "search";
     public static final String STAGE_STATS = "stats";
 
+    private static final Logger LOGGER = LogManager.getLogger();
+
     // configure the application
     private final OpsConfigHelper config;
 
     // use the same helper to manage all the API calls
     private final OpsApiHelper api;
 
-    // use the same logger
-    private final Logger logger;
-
     public PDFPatentPipeline(String path) throws Exception {
         config = new OpsConfigHelper(path);
         api = new OpsApiHelper(config);
-        logger = config.getLogger();
     }
 
     public static void main(String... args) throws Exception {
@@ -58,13 +59,13 @@ public class PDFPatentPipeline {
     public List<PatentInfo> runPipeline(String countryCode, Integer year, String stage) throws Exception {
         List<String> stages = stagesNeeded(stage);
         if (! STAGE_STATS.equals(stage)) {
-            logger.log(String.format("Processing %s %d through stages: ", countryCode, year) + stages);
+            LOGGER.info(String.format("Processing %s %d through stages: ", countryCode, year) + stages);
         }
         List<PatentInfo> results = runPipeline(countryCode, year, stages);
         if (! STAGE_STATS.equals(stage)) {
-            logger.log(String.valueOf(results.subList(0, Math.min(10, results.size()))));
+            LOGGER.info(String.valueOf(results.subList(0, Math.min(10, results.size()))));
             String operation = STAGE_SEARCH.equals(stage) ? "Found" : "Processed";
-            logger.log(String.format("%s %d records for %s %d", operation, results.size(), countryCode, year));
+            LOGGER.info(String.format("%s %d records for %s %d", operation, results.size(), countryCode, year));
         }
         return results;
     }
@@ -75,32 +76,32 @@ public class PDFPatentPipeline {
         List<PatentInfo> info = writer.readInfo();
         for (String stage : stages) {
             if (! STAGE_STATS.equals(stage)) {
-                logger.log("** Starting " + stage + " stage **");
+                LOGGER.info("** Starting " + stage + " stage **");
             }
             writer.setCheckpointDir("ops_" + stage);
             try {
                 boolean success = true;
                 switch(stage) {
                 case STAGE_BIBLIO:
-                    success = RetrieveBiblio.run(api, writer, logger, info);
+                    success = RetrieveBiblio.run(api, writer, info);
                     break;
                 case STAGE_CLAIMS:
-                    success = RetrieveClaims.run(api, writer, logger, info);
+                    success = RetrieveClaims.run(api, writer, info);
                     break;
                 case STAGE_DESCRIPTION:
-                    success = RetrieveDescriptions.run(api, writer, logger, info);
+                    success = RetrieveDescriptions.run(api, writer, info);
                     break;
                 case STAGE_FULLTEXT:
-                    success = FindFullText.run(api, writer, logger, info);
+                    success = FindFullText.run(api, writer, info);
                     break;
                 case STAGE_IMAGES:
-                    success = FindImages.run(api, writer, logger, info);
+                    success = FindImages.run(api, writer, info);
                     break;
                 case STAGE_PDF:
-                    success = DownloadPdfPatents.run(api, writer, logger, info);
+                    success = DownloadPdfPatents.run(api, writer, info);
                     break;
                 case STAGE_SEARCH:
-                    success = FindPatentIds.run(api, writer, logger, countryCode, year, info);
+                    success = FindPatentIds.run(api, writer, countryCode, year, info);
                     break;
                 case STAGE_STATS:
                     success = ReportPatentStats.run(writer, countryCode, year, info);
@@ -109,13 +110,11 @@ public class PDFPatentPipeline {
                     throw new IllegalArgumentException("Unknown stage " + stage);
                 }
                 if (! success) {
-                    // log the stage that failed
-                    logger.logErr(stage + " stage failed");
+                    LOGGER.error(stage + " stage failed");
                     break;
                 }
             } catch (Exception e) {
-                // log the stage that failed
-                logger.logErr(e, stage + " stage failed");
+                LOGGER.error(stage + " stage failed", e);
                 throw(e);
             } finally {
                 // update the master copy after each stage, even in case of errors

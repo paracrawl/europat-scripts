@@ -5,6 +5,9 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 /**
  * Tool for downloading PDFs of patents from the OPS API.
  *
@@ -17,8 +20,8 @@ import java.util.List;
  */
 public class DownloadPdfPatents {
 
-    public static boolean run(OpsApiHelper api, PatentResultWriter writer, Logger logger, List<PatentInfo> info) throws Exception {
-        PdfDownloader g = new PdfDownloader(logger, info, writer);
+    public static boolean run(OpsApiHelper api, PatentResultWriter writer, List<PatentInfo> info) throws Exception {
+        PdfDownloader g = new PdfDownloader(info, writer);
         api.callApi(g, g, writer);
         return true;
     }
@@ -29,13 +32,15 @@ public class DownloadPdfPatents {
         extends OpsResultProcessor
         implements OpsQueryGenerator {
 
+        private static final Logger LOGGER = LogManager.getLogger();
+
         private final List<PatentInfo> docInfo = new ArrayList<>();
         private final PatentResultWriter writer;
         private int index = -1;
         private int pageId = 1;
 
-        public PdfDownloader(Logger logger, List<PatentInfo> inputInfo, PatentResultWriter writer) throws Exception {
-            super(logger, inputInfo);
+        public PdfDownloader(List<PatentInfo> inputInfo, PatentResultWriter writer) throws Exception {
+            super(inputInfo);
             this.writer = writer;
             // initialise the inputs
             for (PatentInfo p : inputInfo) {
@@ -43,7 +48,7 @@ public class DownloadPdfPatents {
                 if (shouldProcess(p) && ! writer.allPdfFilesExist(p)) {
                     docInfo.add(p);
                 } else {
-                    log("  skipping " + p.getDocdbId());
+                    LOGGER.debug("  skipping " + p.getDocdbId());
                 }
             }
         }
@@ -91,7 +96,7 @@ public class DownloadPdfPatents {
         public boolean processContentStream(InputStream inputStream) throws Exception {
             PatentInfo p = getDocInfo();
             writer.writePdfFile(p, pageId, inputStream);
-            log(String.format("Saved page %d of %d for %s", pageId, p.getNPages(), p.getDocdbId()));
+            LOGGER.info(String.format("Saved page %d of %d for %s", pageId, p.getNPages(), p.getDocdbId()));
             return true;
         }
 

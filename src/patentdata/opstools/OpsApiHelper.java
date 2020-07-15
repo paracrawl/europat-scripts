@@ -43,6 +43,9 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.json.JSONObject;
 
 /**
@@ -88,7 +91,8 @@ public class OpsApiHelper {
     public static final String THROTTLE_RETRIEVAL = "retrieval";
     public static final String THROTTLE_SEARCH = "search";
 
-    private final Logger logger;
+    private static final Logger LOGGER = LogManager.getLogger();
+
     private final Map<String, Map<Integer, Date>> allowedRates = new HashMap<>();
     private final Map<String, List<Date>> recentCalls = new HashMap<>();
     private final String authUrl;
@@ -97,7 +101,6 @@ public class OpsApiHelper {
     private String accessToken = "";
 
     public OpsApiHelper(OpsConfigHelper config) throws Exception {
-        logger = config.getLogger();
         authUrl = config.getAuthUrl();
         authString = config.getAuthString();
         serviceUrl = config.getServiceUrl();
@@ -126,7 +129,7 @@ public class OpsApiHelper {
                     continue;
                 }
                 // something wrong - stop
-                logger.logErr(String.format("API call failed"));
+                LOGGER.error(String.format("API call failed"));
                 return false;
             }
         }
@@ -172,7 +175,7 @@ public class OpsApiHelper {
     // -------------------------------------------------------------------------------
 
     private void manageAllowedRate(String service) {
-        // logger.log(String.format("Rates: %s", allowedRates));
+        LOGGER.trace(String.format("Rates: %s", allowedRates));
         Instant tooOld = Instant.now().minus(60, ChronoUnit.SECONDS);
         String throttle = getThrottle(service);
         Integer allowed = null;
@@ -206,7 +209,7 @@ public class OpsApiHelper {
                 }
                 if (allowed != null && calls.size() >= allowed.intValue()) {
                     long wait = Duration.between(tooOld, oldest).toMillis();
-                    logger.log(String.format("Self-throttle: waiting %d ms...", wait));
+                    LOGGER.info(String.format("Self-throttle: waiting %d ms...", wait));
                     try {
                         TimeUnit.MILLISECONDS.sleep(wait);
                     } catch (InterruptedException e) {
@@ -230,7 +233,7 @@ public class OpsApiHelper {
     }
 
     private boolean updateRates(String rateInfo) {
-        // logger.log(String.format("Update: %s", rateInfo));
+        LOGGER.trace(String.format("Update: %s", rateInfo));
         boolean isOverloaded = rateInfo.contains("overloaded");
         Pattern p = Pattern.compile("\\b(\\w+)=\\w+:(\\d+)\\b");
         Matcher m = p.matcher(rateInfo);
@@ -263,7 +266,7 @@ public class OpsApiHelper {
             if (retries > 0) {
                 // if the connection drops, retry after arbitrary delay
                 int delay = 10;
-                logger.log(String.format("Connection dropped. Retry after %d seconds...", delay));
+                LOGGER.info(String.format("Connection dropped. Retry after %d seconds...", delay));
                 try {
                     TimeUnit.SECONDS.sleep(delay);
                 } catch (InterruptedException e) {
@@ -293,7 +296,7 @@ public class OpsApiHelper {
             Header throttling = response.getFirstHeader("X-Throttling-Control");
             int statusCode = response.getStatusLine().getStatusCode();
             if (throttling != null) {
-                logger.log(String.valueOf(throttling));
+                LOGGER.info(String.valueOf(throttling));
                 boolean isOverloaded = updateRates(throttling.getValue());
                 if (isOverloaded) {
                     // add an arbitrary delay before the next call
@@ -331,8 +334,8 @@ public class OpsApiHelper {
                     retry = true;
                 } else {
                     // some other issue - log for human inspection
-                    logger.log(String.format("Headers: %s", Arrays.asList(response.getAllHeaders())));
-                    logger.log(String.format("Output: %s", output));
+                    LOGGER.warn(String.format("Headers: %s", Arrays.asList(response.getAllHeaders())));
+                    LOGGER.warn(String.format("Output: %s", output));
                     retry = false;
                 }
             }
@@ -341,7 +344,7 @@ public class OpsApiHelper {
             EntityUtils.consumeQuietly(response.getEntity());
             response.close();
             if (msDelay > 0) {
-                logger.log(delayMessage);
+                LOGGER.info(delayMessage);
                 try {
                     TimeUnit.MILLISECONDS.sleep(msDelay);
                 } catch (InterruptedException e) {
@@ -362,12 +365,12 @@ public class OpsApiHelper {
         HttpGet request = new HttpGet(new URI(urlString));
         request.addHeader("Authorization", "Bearer " + accessToken);
         CloseableHttpResponse response = client.execute(request);
-        logger.log(String.format("%s : %s", response.getStatusLine(), urlString));
+        LOGGER.info(String.format("%s : %s", response.getStatusLine(), urlString));
         return response;
     }
 
     private void renewCredentials(CloseableHttpClient client) throws Exception {
-        logger.log(String.format("Renewing credentials..."));
+        LOGGER.info(String.format("Renewing credentials..."));
         HttpPost request = new HttpPost(new URI(authUrl));
         request.addHeader("Authorization", "Basic " + authString);
         request.addHeader("Content-Type", "application/x-www-form-urlencoded");
@@ -377,7 +380,7 @@ public class OpsApiHelper {
             String output = streamToString(response.getEntity().getContent());
             accessToken = getJSONValue(new JSONObject(output), "access_token");
         }
-        logger.log(String.format(" ... done"));
+        LOGGER.info(String.format(" ... done"));
     }
 
     private static String getJSONValue(JSONObject json, String name) {

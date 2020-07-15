@@ -9,8 +9,8 @@ import java.util.List;
  */
 public class RetrieveDescriptions {
 
-    public static boolean run(OpsApiHelper api, PatentResultWriter writer, Logger logger, List<PatentInfo> info) throws Exception {
-        DescriptionProcessor p = new DescriptionProcessor(logger, info);
+    public static boolean run(OpsApiHelper api, PatentResultWriter writer, List<PatentInfo> info) throws Exception {
+        DescriptionProcessor p = new DescriptionProcessor(info);
         if (api.callApi(p, p, writer)) {
             info.clear();
             info.addAll(p.getInfo());
@@ -23,8 +23,8 @@ public class RetrieveDescriptions {
 
     protected static class DescriptionProcessor extends ValueProcessor {
 
-        protected DescriptionProcessor(Logger logger, List<PatentInfo> inputInfo) {
-            super(logger, inputInfo, OpsApiHelper.ENDPOINT_DESCRIPTION, PatentResultWriter.DESCRIPTION_FILE);
+        protected DescriptionProcessor(List<PatentInfo> inputInfo) {
+            super(inputInfo, OpsApiHelper.ENDPOINT_DESCRIPTION, PatentResultWriter.DESCRIPTION_FILE);
         }
 
         @Override

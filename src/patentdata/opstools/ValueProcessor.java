@@ -8,6 +8,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
@@ -19,6 +22,8 @@ import org.w3c.dom.NodeList;
 abstract class ValueProcessor extends OpsResultProcessor
     implements OpsQueryGenerator {
 
+    private static final Logger LOGGER = LogManager.getLogger();
+
     private final List<String> docIds = new ArrayList<>();
     private final Map<String, List<PatentContent>> contentMap = new HashMap<>();
     private final String query;
@@ -26,8 +31,8 @@ abstract class ValueProcessor extends OpsResultProcessor
     private final String fileType;
     private int index = -1;
 
-    protected ValueProcessor(Logger logger, List<PatentInfo> inputInfo, String endPoint, String fileType) {
-        super(logger, inputInfo);
+    protected ValueProcessor(List<PatentInfo> inputInfo, String endPoint, String fileType) {
+        super(inputInfo);
         StringBuilder buf = new StringBuilder();
         buf.append(OpsApiHelper.REF_TYPE_PUBLICATION).append("/");
         buf.append(OpsApiHelper.INPUT_FORMAT_DOCDB).append("/");
@@ -40,7 +45,7 @@ abstract class ValueProcessor extends OpsResultProcessor
             if (shouldProcess(p)) {
                 docIds.add(docId);
             } else {
-                log("  skipping " + docId);
+                LOGGER.debug("  skipping " + docId);
             }
         }
     }
@@ -106,8 +111,8 @@ abstract class ValueProcessor extends OpsResultProcessor
     }
 
     private void processResult(String xmlString) throws Exception {
-        // log("*** Processing result");
-        // log(xmlString);
+        LOGGER.trace("*** Processing result");
+        LOGGER.trace(xmlString);
         PatentInfo p = getInfo(docIds.get(index));
         Element docEl = OpsXmlHelper.parseResults(xmlString);
         // result will have either claims or description, not both
@@ -164,7 +169,7 @@ abstract class ValueProcessor extends OpsResultProcessor
                 continue;
             }
             String lang = el.getAttribute("lang");
-            // log(String.format("  found %s: %s", lang, content.substring(0, Math.min(40, content.length()))));
+            LOGGER.trace(String.format("  found %s: %s", lang, content.substring(0, Math.min(40, content.length()))));
             result.add(Arrays.asList(lang, content));
         }
         return result;
