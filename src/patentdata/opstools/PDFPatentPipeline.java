@@ -1,5 +1,6 @@
 package patentdata.opstools;
 
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -50,27 +51,29 @@ public class PDFPatentPipeline {
         int nArgs = args.length;
         String countryCode = args[1];
         Integer year = Integer.valueOf(args[2]);
-        String stage = nArgs > 3 ? args[3] : STAGE_PDF;
+        String stage = nArgs > 3 ? args[3] : STAGE_STATS;
         p.runPipeline(countryCode, year, stage);
     }
 
     // -------------------------------------------------------------------------------
 
-    public List<PatentInfo> runPipeline(String countryCode, Integer year, String stage) throws Exception {
-        List<String> stages = stagesNeeded(stage);
-        if (! STAGE_STATS.equals(stage)) {
-            LOGGER.info(String.format("Processing %s %d through stages: ", countryCode, year) + stages);
+    public void runPipeline(String countryCode, Integer year, String stage) throws Exception {
+        try {
+            List<String> stages = stagesNeeded(stage);
+            if (! stages.isEmpty()) {
+                LOGGER.info(String.format("Processing %s %d through stages: ", countryCode, year) + stages);
+                List<PatentInfo> results = runPipeline(countryCode, year, stages);
+                LOGGER.info(String.valueOf(results.subList(0, Math.min(3, results.size()))));
+                String operation = STAGE_SEARCH.equals(stage) ? "Found" : "Processed";
+                LOGGER.info(String.format("%s %d records for %s %d", operation, results.size(), countryCode, year));
+            }
+        } finally {
+            // always report the stats at the end, even in case of errors
+            runPipeline(countryCode, year, Arrays.asList(STAGE_STATS));
         }
-        List<PatentInfo> results = runPipeline(countryCode, year, stages);
-        if (! STAGE_STATS.equals(stage)) {
-            LOGGER.info(String.valueOf(results.subList(0, Math.min(10, results.size()))));
-            String operation = STAGE_SEARCH.equals(stage) ? "Found" : "Processed";
-            LOGGER.info(String.format("%s %d records for %s %d", operation, results.size(), countryCode, year));
-        }
-        return results;
     }
 
-    public List<PatentInfo> runPipeline(String countryCode, Integer year, List<String> stages) throws Exception {
+    private List<PatentInfo> runPipeline(String countryCode, Integer year, List<String> stages) throws Exception {
         PatentResultWriter writer = new PatentResultWriter(config.getWorkingDirName(), countryCode, year);
         // initialise values from the master copy
         List<PatentInfo> info = writer.readInfo();
@@ -131,8 +134,10 @@ public class PDFPatentPipeline {
     private static List<String> addStage(String stage, List<String> stages) {
         if (! stages.contains(stage)) {
             switch(stage) {
-            case STAGE_SEARCH:
             case STAGE_STATS:
+                // don't add
+                break;
+            case STAGE_SEARCH:
                 stages.add(stage);
                 break;
             case STAGE_BIBLIO:
