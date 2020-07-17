@@ -5,7 +5,9 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 
 import org.apache.commons.codec.binary.Base64;
+
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 
 import org.json.JSONObject;
 
@@ -18,13 +20,15 @@ import org.json.JSONObject;
  */
 public class OpsConfigHelper {
 
+    private static final String CONFIG_FILE_NAME = "/patent.json";
+
     private final String authUrl;
     private final String authString;
     private final String serviceUrl;
     private final String workingDirName;
 
     public OpsConfigHelper(String path) throws Exception {
-        JSONObject json = readConfigFile(path);
+        JSONObject json = path == null ? readConfigFile() : readConfigFile(path);
         authString = makeAuthString(json);
         authUrl = makeUrlString(json, "AuthenURL");
         serviceUrl = makeUrlString(json, "ServiceURL");
@@ -77,6 +81,10 @@ public class OpsConfigHelper {
         }
         buf.append(endPoint);
         return buf.toString();
+    }
+
+    private JSONObject readConfigFile() throws Exception {
+        return new JSONObject(IOUtils.toString(getClass().getResourceAsStream(CONFIG_FILE_NAME), StandardCharsets.UTF_8));
     }
 
     private static JSONObject readConfigFile(String path) throws Exception {

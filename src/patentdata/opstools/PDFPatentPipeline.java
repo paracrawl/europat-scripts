@@ -47,12 +47,22 @@ public class PDFPatentPipeline {
     }
 
     public static void main(String... args) throws Exception {
-        PDFPatentPipeline p = new PDFPatentPipeline(args[0]);
-        int nArgs = args.length;
-        String countryCode = args[1];
-        Integer year = Integer.valueOf(args[2]);
-        String stage = nArgs > 3 ? args[3] : STAGE_STATS;
-        p.runPipeline(countryCode, year, stage);
+        List<String> params = new ArrayList<>(Arrays.asList(args));
+        String configFile = null;
+        int index = Math.max(params.indexOf("-c"), params.indexOf("-C"));
+        if (index >= 0) {
+            configFile = params.remove(index+1);
+            params.remove(index);
+        } else if (params.get(0).endsWith(".json")) {
+            configFile = params.remove(0);
+        }
+        String countryCode = params.get(0);
+        Integer year = Integer.valueOf(params.get(1));
+        String stage = params.size() > 2 ? params.get(2) : STAGE_STATS;
+        if (configFile != null) {
+            LOGGER.warn(String.format("Using config file: %s", configFile));
+        }
+        new PDFPatentPipeline(configFile).runPipeline(countryCode, year, stage);
     }
 
     // -------------------------------------------------------------------------------
