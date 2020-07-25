@@ -21,9 +21,8 @@ import org.apache.logging.log4j.LogManager;
 public class DownloadPdfPatents {
 
     public static boolean run(OpsApiHelper api, PatentResultWriter writer, List<PatentInfo> info) throws Exception {
-        PdfDownloader g = new PdfDownloader(info, writer);
-        api.callApi(g, g, writer);
-        return true;
+        PdfDownloader p = new PdfDownloader(info, writer);
+        return api.callApi(p, p, writer);
     }
 
     // -------------------------------------------------------------------------------
