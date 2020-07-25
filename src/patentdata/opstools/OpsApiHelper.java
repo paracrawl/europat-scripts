@@ -99,6 +99,7 @@ public class OpsApiHelper {
     private final String authString;
     private final String serviceUrl;
     private String accessToken = "";
+    private boolean weeklyQuotaExceeded = false;
 
     public OpsApiHelper(OpsConfigHelper config) throws Exception {
         authUrl = config.getAuthUrl();
@@ -114,6 +115,9 @@ public class OpsApiHelper {
      * incremental results using the given writer.
      */
     public boolean callApi(OpsQueryGenerator g, OpsResultProcessor p, PatentResultWriter w) throws Exception {
+        if (weeklyQuotaExceeded) {
+            return false;
+        }
         PatentResultWriter cw = w.getCheckpointWriter();
         p.readCheckpointResults(cw);
         try (CloseableHttpClient client = initClient()) {
@@ -129,13 +133,21 @@ public class OpsApiHelper {
                     continue;
                 }
                 // something wrong - stop
-                LOGGER.error(String.format("API call failed"));
+                LOGGER.debug(String.format("API call failed"));
                 return false;
             }
         }
         // no more queries - all done
         p.writeResults(w);
         return true;
+    }
+
+    /**
+     * Reports whether the weekly quota for API calls has been
+     * exceeded.
+     */
+    public boolean weeklyQuotaExceeded() {
+        return weeklyQuotaExceeded;
     }
 
     // -------------------------------------------------------------------------------
@@ -312,10 +324,24 @@ public class OpsApiHelper {
                 msDelay = Integer.parseInt(retryAfter.getValue());
                 delayMessage = String.format("Retry after %d milliseconds...", msDelay);
                 retry = true;
-            } else if ("IndividualQuotaPerHour".equals(rejection)) {
+            } else if ("IndividualQuotaPerHour".equals(rejection.getValue())) {
                 int delay = 60;
                 msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
                 delayMessage = String.format("Hourly quota exceeded: retry after %d minutes...", delay);
+                retry = true;
+            } else if ("RegisteredQuotaPerWeek".equals(rejection.getValue())) {
+                weeklyQuotaExceeded = true;
+                LOGGER.error("RegisteredQuotaPerWeek exceeded");
+                retry = false;
+            } else if (HttpStatus.SC_SERVICE_UNAVAILABLE == statusCode) {
+                int delay = 60;
+                msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
+                delayMessage = String.format("Service unavailable: retry after %d minutes...", delay);
+                retry = true;
+            } else if (HttpStatus.SC_INTERNAL_SERVER_ERROR == statusCode) {
+                int delay = 60;
+                msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
+                delayMessage = String.format("Internal server error: retry after %d minutes...", delay);
                 retry = true;
             } else {
                 String output = streamToString(response.getEntity().getContent());
@@ -330,13 +356,25 @@ public class OpsApiHelper {
                     // retry after an arbitrary delay
                     int delay = 5;
                     msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
-                    delayMessage = String.format("SERVER.DomainAccess. Wait %d minutes to reconnect...", delay);
+                    delayMessage = String.format("SERVER.DomainAccess: retry after %d minutes...", delay);
+                    retry = true;
+                } else if (output.contains("Unexpected EOF at target")) {
+                    // retry after an arbitrary delay
+                    int delay = 3;
+                    msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
+                    delayMessage = String.format("Unexpected EOF: retry after %d minutes...", delay);
+                    retry = true;
+                } else if (output.contains("<code>CLIENT.InconsistentRequest</code>")) {
+                    // retry after an arbitrary delay
+                    int delay = 3;
+                    msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
+                    delayMessage = String.format("CLIENT.InconsistentRequest: retry after %d minutes...", delay);
                     retry = true;
                 } else if (output.contains("<code>CLIENT.RobotDetected</code>")) {
                     // retry after an arbitrary delay
-                    int delay = 3;
+                    int delay = 30;
                     msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.SECONDS);
-                    delayMessage = String.format("CLIENT.RobotDetected. Wait %d seconds to reconnect...", delay);
+                    delayMessage = String.format("CLIENT.RobotDetected: retry after %d seconds...", delay);
                     retry = true;
                 } else {
                     // some other issue - log for human inspection

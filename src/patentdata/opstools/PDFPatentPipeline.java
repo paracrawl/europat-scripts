@@ -41,49 +41,66 @@ public class PDFPatentPipeline {
     // use the same helper to manage all the API calls
     private final OpsApiHelper api;
 
-    public PDFPatentPipeline(String path) throws Exception {
-        config = new OpsConfigHelper(path);
+    public PDFPatentPipeline(String configFilePath) throws Exception {
+        config = new OpsConfigHelper(configFilePath);
         api = new OpsApiHelper(config);
     }
 
     public static void main(String... args) throws Exception {
         List<String> params = new ArrayList<>(Arrays.asList(args));
-        String configFile = null;
+        String configFilePath = null;
         int index = Math.max(params.indexOf("-c"), params.indexOf("-C"));
         if (index >= 0) {
-            configFile = params.remove(index+1);
+            configFilePath = params.remove(index+1);
             params.remove(index);
         } else if (params.get(0).endsWith(".json")) {
-            configFile = params.remove(0);
+            configFilePath = params.remove(0);
         }
         String countryCode = params.get(0);
         Integer year = Integer.valueOf(params.get(1));
         String stage = params.size() > 2 ? params.get(2) : STAGE_STATS;
-        if (configFile != null) {
-            LOGGER.warn(String.format("Using config file: %s", configFile));
+        if (configFilePath != null) {
+            LOGGER.warn(String.format("Using config file: %s", configFilePath));
         }
-        new PDFPatentPipeline(configFile).runPipeline(countryCode, year, stage);
+        PDFPatentPipeline p = new PDFPatentPipeline(configFilePath);
+        p.runPipeline(countryCode, year, stage);
+        if (p.weeklyQuotaExceeded()) {
+            // report this condition to the caller
+            System.exit(2);
+        }
     }
 
     // -------------------------------------------------------------------------------
 
+    /**
+     * Reports whether the weekly quota for API calls has been
+     * exceeded.
+     */
+    public boolean weeklyQuotaExceeded() {
+        return api.weeklyQuotaExceeded();
+    }
+
+    /**
+     * Runs the needed pipeline of API calls to complete the given
+     * stage for the given country code and year.
+     */
     public void runPipeline(String countryCode, Integer year, String stage) throws Exception {
         try {
             List<String> stages = stagesNeeded(stage);
             if (! stages.isEmpty()) {
                 LOGGER.info(String.format("Processing %s %d through stages: ", countryCode, year) + stages);
-                List<PatentInfo> results = runPipeline(countryCode, year, stages);
+                List<PatentInfo> results = runPipelineStages(countryCode, year, stages);
                 LOGGER.info(String.valueOf(results.subList(0, Math.min(3, results.size()))));
                 String operation = STAGE_SEARCH.equals(stage) ? "Found" : "Processed";
                 LOGGER.info(String.format("%s %d records for %s %d", operation, results.size(), countryCode, year));
             }
         } finally {
             // always report the stats at the end, even in case of errors
-            runPipeline(countryCode, year, Arrays.asList(STAGE_STATS));
+            runPipelineStages(countryCode, year, Arrays.asList(STAGE_STATS));
         }
     }
 
-    private List<PatentInfo> runPipeline(String countryCode, Integer year, List<String> stages) throws Exception {
+    private List<PatentInfo> runPipelineStages(String countryCode, Integer year, List<String> stages) throws Exception {
         PatentResultWriter writer = new PatentResultWriter(config.getWorkingDirName(), countryCode, year);
         // initialise values from the master copy
         List<PatentInfo> info = writer.readInfo();
