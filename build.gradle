@@ -12,7 +12,7 @@ plugins {
 
 sourceSets {
     main.java.srcDirs = ['src']
-    main.resources.srcDirs = ['res']
+    main.resources.srcDirs = ['config']
 }
 
 repositories {
