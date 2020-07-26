@@ -63,7 +63,11 @@ public class PDFPatentPipeline {
             LOGGER.warn(String.format("Using config file: %s", configFilePath));
         }
         PDFPatentPipeline p = new PDFPatentPipeline(configFilePath);
-        p.runPipeline(countryCode, year, stage);
+        try {
+            p.runPipeline(countryCode, year, stage);
+        } finally {
+            LogManager.shutdown();
+        }
         if (p.weeklyQuotaExceeded()) {
             // report this condition to the caller
             System.exit(2);
