@@ -1,0 +1,13 @@
+[submodule "bitextor"]
+	path = src/bitextor
+	url = git@github.com:jelmervdl/bitextor.git
+[submodule "src/classbase"]
+	path = src/classbase
+	url = git@github.com:paracrawl/europat-classbase.git
+[submodule "src/bleualign"]
+	path = src/bleualign
+	url = git@github.com:jelmervdl/bleualign-cpp.git
+	branch = processed-text-2
+[submodule "src/preprocess"]
+	path = src/preprocess
+	url = git@github.com:kpu/preprocess.git
