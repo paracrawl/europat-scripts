@@ -324,15 +324,21 @@ public class OpsApiHelper {
                 msDelay = Integer.parseInt(retryAfter.getValue());
                 delayMessage = String.format("Retry after %d milliseconds...", msDelay);
                 retry = true;
-            } else if ("IndividualQuotaPerHour".equals(rejection.getValue())) {
-                int delay = 60;
-                msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
-                delayMessage = String.format("Hourly quota exceeded: retry after %d minutes...", delay);
-                retry = true;
-            } else if ("RegisteredQuotaPerWeek".equals(rejection.getValue())) {
-                weeklyQuotaExceeded = true;
-                LOGGER.error("RegisteredQuotaPerWeek exceeded");
-                retry = false;
+            } else if (rejection != null) {
+                if ("IndividualQuotaPerHour".equals(rejection.getValue())) {
+                    int delay = 60;
+                    msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
+                    delayMessage = String.format("Hourly quota exceeded: retry after %d minutes...", delay);
+                    retry = true;
+                } else if ("RegisteredQuotaPerWeek".equals(rejection.getValue())) {
+                    weeklyQuotaExceeded = true;
+                    LOGGER.error("RegisteredQuotaPerWeek exceeded");
+                    retry = false;
+                } else {
+                    // some other rejection - log for human inspection
+                    LOGGER.warn(String.format("Rejected: %s", rejection.getValue()));
+                    retry = false;
+                }
             } else if (HttpStatus.SC_SERVICE_UNAVAILABLE == statusCode) {
                 int delay = 60;
                 msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
