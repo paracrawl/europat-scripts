@@ -1,6 +1,5 @@
 package patentdata.opstools;
 
-import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.net.URLEncoder;
 
