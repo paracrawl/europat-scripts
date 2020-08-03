@@ -1,8 +1,13 @@
 package patentdata.opstools;
 
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.apache.commons.io.FileUtils;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -30,8 +35,8 @@ public class PDFPatentPipeline {
     public static final String STAGE_FULLTEXT = "fulltext";
     public static final String STAGE_IMAGES = "images";
     public static final String STAGE_PDF = "pdf";
+    public static final String STAGE_REPORT = "report";
     public static final String STAGE_SEARCH = "search";
-    public static final String STAGE_STATS = "stats";
 
     private static final Logger LOGGER = LogManager.getLogger();
 
@@ -46,25 +51,34 @@ public class PDFPatentPipeline {
         api = new OpsApiHelper(config);
     }
 
-    public static void main(String... args) throws Exception {
+    public static void main(String[] args) throws Exception {
         List<String> params = new ArrayList<>(Arrays.asList(args));
         String configFilePath = null;
         int index = Math.max(params.indexOf("-c"), params.indexOf("-C"));
         if (index >= 0) {
             configFilePath = params.remove(index+1);
             params.remove(index);
-        } else if (params.get(0).endsWith(".json")) {
-            configFilePath = params.remove(0);
         }
-        String countryCode = params.get(0);
-        Integer year = Integer.valueOf(params.get(1));
-        String stage = params.size() > 2 ? params.get(2) : STAGE_STATS;
         if (configFilePath != null) {
             LOGGER.warn(String.format("Using config file: %s", configFilePath));
         }
+        String inputFilePath = null;
+        index = Math.max(params.indexOf("-f"), params.indexOf("-F"));
+        if (index >= 0) {
+            inputFilePath = params.remove(index+1);
+            params.remove(index);
+        }
+        if (inputFilePath != null) {
+            LOGGER.warn(String.format("Reading input from file: %s", inputFilePath));
+            warnExtraParams(params);
+        }
         PDFPatentPipeline p = new PDFPatentPipeline(configFilePath);
         try {
-            p.runPipeline(countryCode, year, stage);
+            if (inputFilePath == null) {
+                runPipeline(p, params);
+            } else {
+                runCommandsFromFile(p, inputFilePath);
+            }
         } finally {
             LogManager.shutdown();
         }
@@ -72,6 +86,73 @@ public class PDFPatentPipeline {
             // report this condition to the caller
             System.exit(2);
         }
+    }
+
+    // -------------------------------------------------------------------------------
+
+    private static void runPipeline(PDFPatentPipeline p, List<String> params) throws Exception {
+        int nArgs = params.size();
+        if (nArgs < 2) {
+            LOGGER.error(String.format("ERROR: Too few parameters: %s", String.join(" ", params)));
+            printUsage();
+        } else {
+            if (nArgs > 3) {
+                warnExtraParams(params.subList(3, nArgs));
+            }
+            String countryCode = params.get(0);
+            Integer year = Integer.valueOf(params.get(1));
+            String stage = nArgs > 2 ? params.get(2) : STAGE_REPORT;
+            p.runPipeline(countryCode, year, stage);
+        }
+    }
+
+    private static void runCommandsFromFile(PDFPatentPipeline p, String path) throws Exception {
+        for (String line : FileUtils.readLines(new File(path), StandardCharsets.UTF_8)) {
+            if (! line.isEmpty()) {
+                runPipeline(p, Arrays.asList(line.split("\\s")));
+                if (p.weeklyQuotaExceeded()) {
+                    break;
+                }
+            }
+        }
+    }
+
+    private static void warnExtraParams(List<String> params) {
+        if (! params.isEmpty()) {
+            LOGGER.warn(String.format("WARNING: Ignoring extra parameters: %s", String.join(" ", params)));
+        }
+    }
+
+    private static void printUsage() {
+        StringBuilder buf = new StringBuilder();
+        buf.append("------------------------").append("\n");
+        buf.append("Parameters").append("\n");
+        buf.append("------------------------").append("\n");
+        buf.append("-c <ConfigPath> (Optional): Config path (JSON only)").append("\n");
+        buf.append("-f <InputPath>  (Optional): Path to file with inputs").append("\n");
+        buf.append("  OR a single input with 2 or 3 parts:").append("\n");
+        buf.append("<CountryCode>   (Required): 2 letter country code").append("\n");
+        buf.append("<Year>          (Required): 4 digit year").append("\n");
+        buf.append("<Stage>         (Optional): target stage").append("\n");
+        buf.append("\n");
+        buf.append("Stage is one of the following:").append("\n");
+        buf.append("  report        : report patent statistics (default)").append("\n");
+        buf.append("  all           : download PDFs, claims, and descriptions").append("\n");
+        buf.append("  pdf           : download PDFs").append("\n");
+        buf.append("  claims        : download claims").append("\n");
+        buf.append("  description   : download descriptions").append("\n");
+        buf.append("  biblio        : download titles and abstracts").append("\n");
+        buf.append("  search        : identify patents").append("\n");
+        buf.append("  fulltext      : identify patents with full text").append("\n");
+        buf.append("  images        : identify patents with PDFs available").append("\n");
+        buf.append("------------------------").append("\n");
+        buf.append("Examples").append("\n");
+        buf.append("------------------------").append("\n");
+        buf.append("java -jar pdfpatents.jar -c \"config/path/patent.json\" NO 1994").append("\n");
+        buf.append("java -jar pdfpatents.jar -f \"input/path/inputs.txt\"").append("\n");
+        buf.append("java -jar pdfpatents.jar NO 1994 pdf").append("\n");
+        buf.append("------------------------").append("\n");
+        System.err.println(buf);
     }
 
     // -------------------------------------------------------------------------------
@@ -100,7 +181,7 @@ public class PDFPatentPipeline {
             }
         } finally {
             // always report the stats at the end, even in case of errors
-            runPipelineStages(countryCode, year, Arrays.asList(STAGE_STATS));
+            runPipelineStages(countryCode, year, Arrays.asList(STAGE_REPORT));
         }
     }
 
@@ -109,7 +190,7 @@ public class PDFPatentPipeline {
         // initialise values from the master copy
         List<PatentInfo> info = writer.readInfo();
         for (String stage : stages) {
-            if (! STAGE_STATS.equals(stage)) {
+            if (! STAGE_REPORT.equals(stage)) {
                 LOGGER.info("** Starting " + stage + " stage **");
             }
             writer.setCheckpointDir("ops_" + stage);
@@ -137,7 +218,7 @@ public class PDFPatentPipeline {
                 case STAGE_SEARCH:
                     success = FindPatentIds.run(api, writer, countryCode, year, info);
                     break;
-                case STAGE_STATS:
+                case STAGE_REPORT:
                     success = ReportPatentStats.run(writer, countryCode, year, info);
                     break;
                 default:
@@ -165,8 +246,8 @@ public class PDFPatentPipeline {
     private static List<String> addStage(String stage, List<String> stages) {
         if (! stages.contains(stage)) {
             switch(stage) {
-            case STAGE_STATS:
-                // don't add
+            case STAGE_REPORT:
+                // don't add anything
                 break;
             case STAGE_SEARCH:
                 stages.add(stage);
