@@ -53,8 +53,13 @@ public class PDFPatentPipeline {
 
     public static void main(String[] args) throws Exception {
         List<String> params = new ArrayList<>(Arrays.asList(args));
+        int index = Math.max(params.indexOf("-h"), params.indexOf("--help"));
+        if (index >= 0 || params.isEmpty()) {
+            printHelp();
+            return;
+        }
         String configFilePath = null;
-        int index = Math.max(params.indexOf("-c"), params.indexOf("-C"));
+        index = Math.max(params.indexOf("-c"), params.indexOf("-C"));
         if (index >= 0) {
             configFilePath = params.remove(index+1);
             params.remove(index);
@@ -123,6 +128,20 @@ public class PDFPatentPipeline {
         }
     }
 
+    private static void printHelp() {
+        StringBuilder buf = new StringBuilder();
+        buf.append("------------------------").append("\n");
+        buf.append("PDFPatentPipeline").append("\n");
+        buf.append("------------------------").append("\n");
+        buf.append("This is a tool for running a pipeline of steps for downloading patents from the OPS API. ");
+        buf.append("It manages the calls to the OPS API, obeying the throttling limits.").append("\n");
+        buf.append("\n");
+        buf.append("PDF patents will NOT be downloaded if the title, abstract, claims, and description are all available as text. ");
+        buf.append("This tool does not currently check which languages are available as text before making this decision.").append("\n");
+        System.err.print(buf);
+        printUsage();
+    }
+
     private static void printUsage() {
         StringBuilder buf = new StringBuilder();
         buf.append("------------------------").append("\n");
@@ -152,7 +171,7 @@ public class PDFPatentPipeline {
         buf.append("java -jar pdfpatents.jar -f \"input/path/inputs.txt\"").append("\n");
         buf.append("java -jar pdfpatents.jar NO 1994 pdf").append("\n");
         buf.append("------------------------").append("\n");
-        System.err.println(buf);
+        System.err.print(buf);
     }
 
     // -------------------------------------------------------------------------------
