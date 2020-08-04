@@ -1,5 +1,6 @@
 package patentdata.opstools;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -30,6 +31,7 @@ public class ReportPatentStats {
         Map<String, Integer> abstracts = new TreeMap<>();
         Map<String, Integer> claims = new TreeMap<>();
         Map<String, Integer> descriptions = new TreeMap<>();
+        Map<String, Integer> allText = new TreeMap<>();
         int totalPatents = 0;
         int patentsProcessed = 0;
         int withTitle = 0;
@@ -50,23 +52,30 @@ public class ReportPatentStats {
                     increment(titles, lang);
                 }
             }
+            List<String> languages = new ArrayList<>(p.getTitles());
             if (p.hasAbstract()) {
                 withAbstract++;
                 for (String lang : p.getAbstracts()) {
                     increment(abstracts, lang);
                 }
             }
+            languages.retainAll(p.getAbstracts());
             if (p.hasClaims()) {
                 withClaims++;
                 for (String lang : p.getClaims()) {
                     increment(claims, lang);
                 }
             }
+            languages.retainAll(p.getClaims());
             if (p.hasDescription()) {
                 withDescription++;
                 for (String lang : p.getDescriptions()) {
                     increment(descriptions, lang);
                 }
+            }
+            languages.retainAll(p.getDescriptions());
+            for (String lang : languages) {
+                increment(allText, lang);
             }
             if (p.hasImages()) {
                 withImages++;
@@ -88,26 +97,39 @@ public class ReportPatentStats {
 
         System.out.println(String.format("%8d patents found", totalPatents));
         if (totalPatents > 0) {
-            System.out.println(String.format("%8d with any title", withTitle));
+            if (titles.isEmpty() || titles.size() > 1) {
+                System.out.println(String.format("%8d with any title", withTitle));
+            }
             for (String lang : titles.keySet()) {
                 System.out.println(String.format("%8d with title in language \"%s\"", titles.get(lang), lang));
             }
-            System.out.println(String.format("%8d with any abstract", withAbstract));
+            if (abstracts.isEmpty() || abstracts.size() > 1) {
+                System.out.println(String.format("%8d with any abstract", withAbstract));
+            }
             for (String lang : abstracts.keySet()) {
                 System.out.println(String.format("%8d with abstract in language \"%s\"", abstracts.get(lang), lang));
             }
-            System.out.println(String.format("%8d with any claims", withClaims));
+            if (claims.isEmpty() || claims.size() > 1) {
+                System.out.println(String.format("%8d with any claims", withClaims));
+            }
             for (String lang : claims.keySet()) {
                 System.out.println(String.format("%8d with claims in language \"%s\"", claims.get(lang), lang));
             }
-            System.out.println(String.format("%8d with any description", withDescription));
+            if (descriptions.isEmpty() || descriptions.size() > 1) {
+                System.out.println(String.format("%8d with any description", withDescription));
+            }
             for (String lang : descriptions.keySet()) {
                 System.out.println(String.format("%8d with description in language \"%s\"", descriptions.get(lang), lang));
             }
-            System.out.println(String.format("%8d with any PDFs", withImages));
-            System.out.println(String.format("%8d patents fully checked", patentsProcessed));
-            System.out.println(String.format("%8d with all text parts in any language", withAllText));
+            // System.out.println(String.format("%8d patents fully checked", patentsProcessed));
+            if (allText.isEmpty() || allText.size() > 1) {
+                System.out.println(String.format("%8d with all text parts in any language", withAllText));
+            }
+            for (String lang : allText.keySet()) {
+                System.out.println(String.format("%8d with all text parts in language \"%s\"", allText.get(lang), lang));
+            }
             System.out.println(String.format("%8d with missing information", missingInfo));
+            System.out.println(String.format("%8d with any PDFs", withImages));
             System.out.println(String.format("%8d with PDFs we want", withNeededImages));
             if (withNeededImages > 0) {
                 System.out.println(String.format("%8d PDF pages total (mean %.1f per patent)", totalNeededImages, averageImages));
