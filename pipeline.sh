@@ -1,34 +1,12 @@
 #!/bin/bash
-
-#
-# In each of the models a translate.sh file is expected, something that looks like:
-#
-#   #!/bin/bash
-#   set -euo pipefail
-# 
-#   cd $(dirname $0)
-#   
-#   $BPE_BIN \
-#     -c deen.bpe \
-#     | $MARIAN_BIN "$@" \
-#       -d $GPU \
-#       --vocabs train.bpe.de.json train.bpe.en.json \
-#       -m model.NMT104080k1060k1080k.npz \
-#     | sed -r 's/\@\@ //g' \
-#     | sed -r 's/\@\@$//g'
-#
-
 set -eou pipefail
 
 # How many bleualign?
-THREADS=${THREADS:-4}
+THREADS=6
 
 ROOT=$(dirname $(realpath $0))
 
-# Add the local bin to my path. This contains marian-decoder,
-# binaries from https://github.com/jelmervdl/bitextor/tree/doctools
-# bleualign_cpp from https://github.com/jelmervdl/bleualign-cpp/tree/processed-text-2
-# and a self-contained jar with classbase.jar.
+# Add the local bin to my path plz
 export PATH=$ROOT/bin:$PATH
 
 # Note subword nmt is not installed in bin, you'll have to
@@ -85,25 +63,64 @@ preprocess () {
 }
 
 translate () {
-	b64filter foldfilter -w 1000 -- $MODEL --quiet-translation
+	b64filter foldfilter -w 1000 $MODEL \
+		--quiet \
+		--beam-size 6 \
+		--normalize 1 \
+		--mini-batch 64 \
+		--maxi-batch 1000 \
+		--mini-batch-words 4000 \
+		--maxi-batch-sort src \
+		--workspace 8000
+}
+
+buffer () {
+	local buffer=$1
+	local lines=$2
+	local name=$3
+	pv -l -C -B $buffer -s $lines -c -N $name
+}
+
+buffer () {
+	pv -lqCB $1
+}
+
+progress() {
+	pv -l -s $1 -c -N $2
+}
+
+align () {
+	local file=$1
+	gzip -cd $(basename $file .tab)-bleualign-input.tab.gz \
+	| parallel \
+		--halt 2 \
+		--pipe \
+		--roundrobin \
+		-j $THREADS \
+		-N 1 \
+		bleualign_cpp --bleu-threshold 0.2 \
+	| gzip \
+	> $(basename $file .tab)-aligned.gz
 }
 
 for file in $*; do
+	n=$(cat $file | wc -l)
+	echo "$(basename $file): $n documents"
 	paste \
 		<(cat $file | col 1) \
 		<(cat $file | col 3) \
 		<(cat $file | col 2 | document_to_base64) \
 		<(cat $file | col 4 | document_to_base64) \
-		<(cat $file | col 2 | document_to_base64 | preprocess $SLANG | translate) \
-		<(cat $file | col 4 | document_to_base64 | preprocess en) \
-	| tee >(gzip -9c > $(basename $file .tab)-bleualign-input.tab.gz) \
-	| parallel \
-		--halt 2 \
-		--pipe \
-		-k \
-		-l 1 \
-		-j $THREADS \
-		bleualign_cpp --bleu-threshold 0.2 \
-	| gzip \
-	> $(basename $file .tab)-aligned.gz
+		<(cat $file | col 2 | document_to_base64 | preprocess $SLANG | progress $n prep-$SLANG | buffer 512M | translate | progress $n translate) \
+		<(cat $file | col 4 | document_to_base64 | preprocess en | progress $n prep-en | buffer 512M) \
+	| progress $n write \
+	| gzip -9c \
+	> $(basename $file .tab)-bleualign-input.tab.gz
+	
+	# Run align in the background we dont want to wait for it
+	align $file &
 done
+
+echo "Waiting on alignment to finish"
+wait
+echo "Done."
