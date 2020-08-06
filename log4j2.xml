@@ -25,11 +25,19 @@
         <TimeBasedTriggeringPolicy/>
       </Policies>
     </RollingFile>
+    <RollingFile name="RollingApiFile" filePattern="${defaultLogDir}/api_%d{yyyyMMddHH}.log">
+      <PatternLayout pattern="%d{HH:mm:ss.SSS}\t\t%msg%n"/>
+      <MarkerFilter marker="OPS_API_CALL" onMatch="ACCEPT" onMismatch="DENY"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+      </Policies>
+    </RollingFile>
   </Appenders>
   <Loggers>
     <Root level="all">
       <AppenderRef ref="RollingLogFile" level="DEBUG"/>
       <AppenderRef ref="RollingErrFile" level="ERROR"/>
+      <AppenderRef ref="RollingApiFile" level="TRACE"/>
       <AppenderRef ref="Console" level="INFO"/>
       <AppenderRef ref="ConsoleError" level="ERROR"/>
     </Root>
