@@ -35,6 +35,7 @@ public class PDFPatentPipeline {
     public static final String STAGE_FULLTEXT = "fulltext";
     public static final String STAGE_IMAGES = "images";
     public static final String STAGE_PDF = "pdf";
+    public static final String STAGE_PREPDF = "prepdf";
     public static final String STAGE_REPORT = "report";
     public static final String STAGE_SEARCH = "search";
 
@@ -283,10 +284,14 @@ public class PDFPatentPipeline {
                 addStage(STAGE_FULLTEXT, stages);
                 stages.add(stage);
                 break;
-            case STAGE_PDF:
+            case STAGE_PREPDF:
                 addStage(STAGE_BIBLIO, stages);
                 addStage(STAGE_FULLTEXT, stages);
                 addStage(STAGE_IMAGES, stages);
+                // prepdf is not a real stage - don't add
+                break;
+            case STAGE_PDF:
+                addStage(STAGE_PREPDF, stages);
                 stages.add(stage);
                 break;
             case STAGE_ALL:
