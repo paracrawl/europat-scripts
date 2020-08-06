@@ -45,6 +45,8 @@ import org.apache.http.util.EntityUtils;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.MarkerManager;
 
 import org.json.JSONObject;
 
@@ -92,6 +94,7 @@ public class OpsApiHelper {
     public static final String THROTTLE_SEARCH = "search";
 
     private static final Logger LOGGER = LogManager.getLogger();
+    private static final Marker API_MARKER = MarkerManager.getMarker("OPS_API_CALL");
 
     private final Map<String, Map<Integer, Date>> allowedRates = new HashMap<>();
     private final Map<String, List<Date>> recentCalls = new HashMap<>();
@@ -133,7 +136,7 @@ public class OpsApiHelper {
                     continue;
                 }
                 // something wrong - stop
-                LOGGER.debug(String.format("API call failed"));
+                LOGGER.debug("API call failed");
                 return false;
             }
         }
@@ -187,9 +190,10 @@ public class OpsApiHelper {
     // -------------------------------------------------------------------------------
 
     private void manageAllowedRate(String service) {
-        LOGGER.trace(String.format("Rates: %s", allowedRates));
+        LOGGER.trace(API_MARKER, String.format("Rates: %s", allowedRates));
         Instant tooOld = Instant.now().minus(60, ChronoUnit.SECONDS);
         String throttle = getThrottle(service);
+        LOGGER.trace(API_MARKER, String.format("Check %s", throttle));
         Integer allowed = null;
         synchronized (allowedRates) {
             if (allowedRates.containsKey(throttle)) {
@@ -198,6 +202,7 @@ public class OpsApiHelper {
                      it.hasNext();) {
                     Map.Entry<Integer, Date> e = it.next();
                     if (e.getValue().toInstant().isBefore(tooOld)) {
+                        LOGGER.trace(API_MARKER, String.format("  drop: %s", e));
                         it.remove();
                     } else {
                         allowed = e.getKey();
@@ -210,18 +215,22 @@ public class OpsApiHelper {
                 List<Date> calls = recentCalls.get(throttle);
                 Collections.sort(calls);
                 Instant oldest = null;
-                for (Iterator <Date> it = calls.iterator();
-                     it.hasNext();) {
+                for (Iterator <Date> it = calls.iterator(); it.hasNext();) {
                     oldest = it.next().toInstant();
                     if (oldest.isBefore(tooOld)) {
+                        LOGGER.trace(API_MARKER, String.format("  forget: %s", oldest));
                         it.remove();
                     } else {
                         break;
                     }
                 }
+                if (allowed != null) {
+                    LOGGER.trace(API_MARKER, String.format("  limit: %d", allowed.intValue()));
+                    LOGGER.trace(API_MARKER, String.format("  recent: %d", calls.size()));
+                }
                 if (allowed != null && calls.size() >= allowed.intValue()) {
                     long wait = Duration.between(tooOld, oldest).toMillis();
-                    LOGGER.info(String.format("Self-throttle: waiting %d ms...", wait));
+                    LOGGER.info(API_MARKER, String.format("Self-throttle: waiting %d ms...", wait));
                     try {
                         TimeUnit.MILLISECONDS.sleep(wait);
                     } catch (InterruptedException e) {
@@ -245,7 +254,7 @@ public class OpsApiHelper {
     }
 
     private boolean updateRates(String rateInfo) {
-        LOGGER.trace(String.format("Update: %s", rateInfo));
+        LOGGER.trace(API_MARKER, String.format("Update: %s", rateInfo));
         boolean isOverloaded = rateInfo.contains("overloaded");
         Pattern p = Pattern.compile("\\b(\\w+)=\\w+:(\\d+)\\b");
         Matcher m = p.matcher(rateInfo);
@@ -278,7 +287,7 @@ public class OpsApiHelper {
             if (retries > 0) {
                 // if the connection drops, retry after arbitrary delay
                 int delay = 10;
-                LOGGER.info(String.format("Connection dropped. Retry after %d seconds...", delay));
+                LOGGER.info(API_MARKER, String.format("Connection dropped. Retry after %d seconds...", delay));
                 try {
                     TimeUnit.SECONDS.sleep(delay);
                 } catch (InterruptedException e) {
@@ -394,7 +403,7 @@ public class OpsApiHelper {
             EntityUtils.consumeQuietly(response.getEntity());
             response.close();
             if (msDelay > 0) {
-                LOGGER.info(delayMessage);
+                LOGGER.info(API_MARKER, delayMessage);
                 try {
                     TimeUnit.MILLISECONDS.sleep(msDelay);
                 } catch (InterruptedException e) {
@@ -420,7 +429,7 @@ public class OpsApiHelper {
     }
 
     private void renewCredentials(CloseableHttpClient client) throws Exception {
-        LOGGER.info(String.format("Renewing credentials..."));
+        LOGGER.info("Renewing credentials...");
         HttpPost request = new HttpPost(new URI(authUrl));
         request.addHeader("Authorization", "Basic " + authString);
         request.addHeader("Content-Type", "application/x-www-form-urlencoded");
@@ -430,7 +439,7 @@ public class OpsApiHelper {
             String output = streamToString(response.getEntity().getContent());
             accessToken = getJSONValue(new JSONObject(output), "access_token");
         }
-        LOGGER.info(String.format(" ... done"));
+        LOGGER.info(" ... done");
     }
 
     private static String getJSONValue(JSONObject json, String name) {
