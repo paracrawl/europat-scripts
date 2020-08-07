@@ -8,14 +8,12 @@ import java.net.URI;
 
 import java.nio.charset.StandardCharsets;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -96,8 +94,8 @@ public class OpsApiHelper {
     private static final Logger LOGGER = LogManager.getLogger();
     private static final Marker API_MARKER = MarkerManager.getMarker("OPS_API_CALL");
 
-    private final Map<String, Map<Integer, Date>> allowedRates = new HashMap<>();
-    private final Map<String, List<Date>> recentCalls = new HashMap<>();
+    private final Map<String, List<Instant>> recentCalls = new HashMap<>();
+    private final Map<String, Map<Integer, Instant>> allowedRates = new HashMap<>();
     private final String authUrl;
     private final String authString;
     private final String serviceUrl;
@@ -194,28 +192,27 @@ public class OpsApiHelper {
         Instant tooOld = Instant.now().minus(60, ChronoUnit.SECONDS);
         String throttle = getThrottle(service);
         LOGGER.trace(API_MARKER, String.format("Check %s", throttle));
-        Integer allowed = null;
+        Integer limit = null;
         synchronized (allowedRates) {
             if (allowedRates.containsKey(throttle)) {
-                Map<Integer, Date> map = allowedRates.get(throttle);
-                for (Iterator <Map.Entry<Integer, Date>> it = map.entrySet().iterator();
-                     it.hasNext();) {
-                    Map.Entry<Integer, Date> e = it.next();
-                    if (e.getValue().toInstant().isBefore(tooOld)) {
+                Map<Integer, Instant> map = allowedRates.get(throttle);
+                for (Iterator <Map.Entry<Integer, Instant>> it = map.entrySet().iterator(); it.hasNext();) {
+                    Map.Entry<Integer, Instant> e = it.next();
+                    if (e.getValue().isBefore(tooOld)) {
                         LOGGER.trace(API_MARKER, String.format("  drop: %s", e));
                         it.remove();
                     } else {
-                        allowed = e.getKey();
+                        limit = e.getKey();
                     }
                 }
             }
         }
         synchronized (recentCalls) {
             if (recentCalls.containsKey(throttle)) {
-                List<Date> calls = recentCalls.get(throttle);
+                List<Instant> calls = recentCalls.get(throttle);
                 Collections.sort(calls);
-                for (Iterator <Date> it = calls.iterator(); it.hasNext();) {
-                    Instant oldest = it.next().toInstant();
+                for (Iterator <Instant> it = calls.iterator(); it.hasNext();) {
+                    Instant oldest = it.next();
                     if (oldest.isBefore(tooOld)) {
                         LOGGER.trace(API_MARKER, String.format("  forget: %s", oldest));
                         it.remove();
@@ -223,14 +220,14 @@ public class OpsApiHelper {
                         break;
                     }
                 }
-                if (allowed != null) {
+                if (limit != null) {
                     int nCalls = calls.size();
-                    int nAllowed = allowed.intValue();
+                    int nAllowed = limit.intValue();
                     LOGGER.trace(API_MARKER, String.format("  recent: %d", nCalls));
                     LOGGER.trace(API_MARKER, String.format("  limit: %d", nAllowed));
                     if (nCalls >= nAllowed) {
-                        Instant firstAllowed = calls.get(nCalls - nAllowed).toInstant();
-                        long wait = Duration.between(tooOld, firstAllowed).toMillis();
+                        Instant firstAllowed = calls.get(nCalls - nAllowed);
+                        long wait = tooOld.until(firstAllowed, ChronoUnit.MILLIS);
                         LOGGER.info(API_MARKER, String.format("Self-throttle: waiting %d ms...", wait));
                         try {
                             TimeUnit.MILLISECONDS.sleep(wait);
@@ -238,8 +235,6 @@ public class OpsApiHelper {
                             // ignore
                         }
                     }
-                } else {
-                    recentCalls.put(throttle, new ArrayList<Date>()); 
                 }
             }
         }
@@ -249,9 +244,9 @@ public class OpsApiHelper {
         String throttle = getThrottle(service);
         synchronized (recentCalls) {
             if (! recentCalls.containsKey(throttle)) {
-                recentCalls.put(throttle, new ArrayList<Date>()); 
+                recentCalls.put(throttle, new ArrayList<Instant>()); 
             }
-            recentCalls.get(throttle).add(new Date());
+            recentCalls.get(throttle).add(Instant.now());
         }
     }
 
@@ -265,9 +260,9 @@ public class OpsApiHelper {
             Integer limit = Integer.valueOf(m.group(2));
             synchronized (allowedRates) {
                 if (! allowedRates.containsKey(service)) {
-                    allowedRates.put(service, new TreeMap<Integer, Date>()); 
+                    allowedRates.put(service, new TreeMap<Integer, Instant>()); 
                 }
-                allowedRates.get(service).put(limit, new Date());
+                allowedRates.get(service).put(limit, Instant.now());
             }
         }
         return isOverloaded;
