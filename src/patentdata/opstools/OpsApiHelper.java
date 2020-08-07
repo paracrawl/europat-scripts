@@ -214,9 +214,8 @@ public class OpsApiHelper {
             if (recentCalls.containsKey(throttle)) {
                 List<Date> calls = recentCalls.get(throttle);
                 Collections.sort(calls);
-                Instant oldest = null;
                 for (Iterator <Date> it = calls.iterator(); it.hasNext();) {
-                    oldest = it.next().toInstant();
+                    Instant oldest = it.next().toInstant();
                     if (oldest.isBefore(tooOld)) {
                         LOGGER.trace(API_MARKER, String.format("  forget: %s", oldest));
                         it.remove();
@@ -225,20 +224,23 @@ public class OpsApiHelper {
                     }
                 }
                 if (allowed != null) {
-                    LOGGER.trace(API_MARKER, String.format("  limit: %d", allowed.intValue()));
-                    LOGGER.trace(API_MARKER, String.format("  recent: %d", calls.size()));
-                }
-                if (allowed != null && calls.size() >= allowed.intValue()) {
-                    long wait = Duration.between(tooOld, oldest).toMillis();
-                    LOGGER.info(API_MARKER, String.format("Self-throttle: waiting %d ms...", wait));
-                    try {
-                        TimeUnit.MILLISECONDS.sleep(wait);
-                    } catch (InterruptedException e) {
-                        // ignore
+                    int nCalls = calls.size();
+                    int nAllowed = allowed.intValue();
+                    LOGGER.trace(API_MARKER, String.format("  recent: %d", nCalls));
+                    LOGGER.trace(API_MARKER, String.format("  limit: %d", nAllowed));
+                    if (nCalls >= nAllowed) {
+                        Instant firstAllowed = calls.get(nCalls - nAllowed).toInstant();
+                        long wait = Duration.between(tooOld, firstAllowed).toMillis();
+                        LOGGER.info(API_MARKER, String.format("Self-throttle: waiting %d ms...", wait));
+                        try {
+                            TimeUnit.MILLISECONDS.sleep(wait);
+                        } catch (InterruptedException e) {
+                            // ignore
+                        }
                     }
+                } else {
+                    recentCalls.put(throttle, new ArrayList<Date>()); 
                 }
-            } else {
-                recentCalls.put(throttle, new ArrayList<Date>()); 
             }
         }
     }
