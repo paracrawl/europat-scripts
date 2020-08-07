@@ -165,6 +165,7 @@ public class PDFPatentPipeline {
         buf.append("  search        : identify patents").append("\n");
         buf.append("  fulltext      : identify patents with full text").append("\n");
         buf.append("  images        : identify patents with PDFs available").append("\n");
+        buf.append("  prepdf        : identify PDFs to download").append("\n");
         buf.append("------------------------").append("\n");
         buf.append("Examples").append("\n");
         buf.append("------------------------").append("\n");
