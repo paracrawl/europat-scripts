@@ -448,4 +448,9 @@ public class OpsApiHelper {
         RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(5000).setConnectTimeout(5000).setConnectionRequestTimeout(5000).build();
         return HttpClients.custom().setDefaultRequestConfig(requestConfig).build();
     }
+
+    // -------------------------------------------------------------------------------
+
+    public void runTests() {
+    }
 }

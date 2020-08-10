@@ -68,6 +68,11 @@ public class PDFPatentPipeline {
         if (configFilePath != null) {
             LOGGER.warn(String.format("Using config file: %s", configFilePath));
         }
+        index = Math.max(params.indexOf("-t"), params.indexOf("--test"));
+        if (index >= 0 || params.isEmpty()) {
+            new PDFPatentPipeline(configFilePath).runTests();
+            return;
+        }
         String inputFilePath = null;
         index = Math.max(params.indexOf("-f"), params.indexOf("-F"));
         if (index >= 0) {
@@ -305,5 +310,11 @@ public class PDFPatentPipeline {
             }
         }
         return stages;
+    }
+
+    // -------------------------------------------------------------------------------
+
+    private void runTests() {
+        api.runTests();
     }
 }
