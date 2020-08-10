@@ -195,14 +195,15 @@ public class OpsApiHelper {
         Integer limit = null;
         synchronized (allowedRates) {
             if (allowedRates.containsKey(throttle)) {
-                Map<Integer, Instant> map = allowedRates.get(throttle);
-                for (Iterator <Map.Entry<Integer, Instant>> it = map.entrySet().iterator(); it.hasNext();) {
+                Map<Integer, Instant> rates = allowedRates.get(throttle);
+                for (Iterator <Map.Entry<Integer, Instant>> it = rates.entrySet().iterator(); it.hasNext();) {
                     Map.Entry<Integer, Instant> e = it.next();
                     if (e.getValue().isBefore(tooOld)) {
                         LOGGER.trace(API_MARKER, String.format("  drop: %s", e));
                         it.remove();
                     } else {
                         limit = e.getKey();
+                        break;
                     }
                 }
             }
