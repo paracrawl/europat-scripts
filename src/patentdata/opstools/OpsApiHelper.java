@@ -280,10 +280,10 @@ public class OpsApiHelper {
 
     private boolean handleCall(CloseableHttpClient client, String urlString, OpsResultProcessor p) throws Exception {
         int retries = 0;
-        while (retries < 3) {
+        while (retries < 5) {
             if (retries > 0) {
                 // if the connection drops, retry after arbitrary delay
-                int delay = 10;
+                int delay = 10 * retries;
                 LOGGER.info(API_MARKER, String.format("Connection dropped. Retry after %d seconds...", delay));
                 try {
                     TimeUnit.SECONDS.sleep(delay);
