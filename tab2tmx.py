@@ -16,7 +16,7 @@
 #
 # 	gzip -cd DE-EN-2001-Abstract.tmx.gz \
 #	| ./tab2tmx.py -o tmx \
-#		--filter-ipc-group IV \
+#		--with-ipc-group IV \
 #	| gzip -9c > DE-EN-2001-Abstract-IV-only.tmx.gz
 #
 #
@@ -36,6 +36,7 @@ __VERSION__ = 1.0
 import csv
 import sys
 import time
+import re
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from io import BufferedReader
@@ -343,7 +344,20 @@ def deduplicate(reader: Iterator[dict], key: Callable[[dict], Any]) -> Iterator[
 
 
 def pred_prop_intersection(key: str, values: Set[str]) -> Callable[[dict], bool]:
+	return lambda unit: bool(unit[key] & values)
+
+
+def pred_translation_prop_intersection(key: str, values: Set[str]) -> Callable[[dict], bool]:
 	return lambda unit: any(translation[key] & values for translation in unit['translations'].values())
+
+
+def pred_translation_text_contains(values: List[str]) -> Callable[[dict], bool]:
+	pattern = re.compile('|'.join('({})'.format(re.escape(value)) for value in values))
+	return lambda unit: any(pattern.search(translation['text']) is not None for translation in unit['translations'].values())
+
+
+def pred_negate(pred: Callable[[dict], bool]) -> Callable[[dict], bool]:
+	return lambda unit: not pred(unit)
 
 
 def autodetect(fh) -> Optional[str]:
@@ -367,8 +381,12 @@ if __name__ == '__main__':
 	parser.add_argument('-d', '--deduplicate', action='store_true')
 	parser.add_argument('--ipc', dest='ipc_meta_files', action='append')
 	parser.add_argument('--ipc-group', dest='ipc_group_files', action='append')
-	parser.add_argument('--filter-ipc', nargs='+')
-	parser.add_argument('--filter-ipc-group', nargs='+')
+	parser.add_argument('--with-ipc', nargs='+')
+	parser.add_argument('--with-ipc-group', nargs='+')
+	parser.add_argument('--with-text', nargs='+')
+	parser.add_argument('--without-text', nargs='+')
+	parser.add_argument('--with-source-document', nargs='+')
+	parser.add_argument('--without-source-document', nargs='+')
 
 	args = parser.parse_args()
 
@@ -418,11 +436,23 @@ if __name__ == '__main__':
 	if args.deduplicate:
 		reader = deduplicate(reader, key=text_key)
 
-	if args.filter_ipc:
-		reader = filter(pred_prop_intersection('ipc', set(args.filter_ipc)), reader)
+	if args.with_ipc:
+		reader = filter(pred_translation_prop_intersection('ipc', set(args.with_ipc)), reader)
 		
-	if args.filter_ipc_group:
-		reader = filter(pred_prop_intersection('ipc-group', set(args.filter_ipc_group)), reader)
+	if args.with_ipc_group:
+		reader = filter(pred_translation_prop_intersection('ipc-group', set(args.with_ipc_group)), reader)
+
+	if args.with_text:
+		reader = filter(pred_translation_text_contains(args.with_text), reader)
+
+	if args.without_text:
+		reader = filter(pred_negate(pred_translation_text_contains(args.without_text)), reader)
+
+	if args.with_source_document:
+		reader = filter(pred_translation_prop_intersection('source-document', set(args.with_source_document)), reader)
+
+	if args.without_source_document:
+		reader = filter(pred_negate(pred_translation_prop_intersection('source-document', set(args.without_source_document))), reader)
 
 	# Main loop. with statement for writer so it can write header & footer
 	with writer:
