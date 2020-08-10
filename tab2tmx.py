@@ -42,6 +42,7 @@ from io import BufferedReader
 from xml.sax.saxutils import escape, quoteattr
 from xml.etree.ElementTree import iterparse
 from itertools import combinations
+from collections import defaultdict
 from pprint import pprint
 from typing import Callable, List, Optional, Any, Iterator, Set
 
@@ -86,12 +87,12 @@ class XMLWriter(object):
 				self.close()
 
 # unit = {
-# 	'score': float,
+# 	'score-aligner': float,
 # 	'translations': {
 # 		str: {
-# 			'urls': {str},
-#   		'ipcs': {str},
-#			'ics_groups': {str},
+# 			'source-document': {str},
+#			'ipc': {str}
+#   		'ipc-group': {str},
 # 			'text': str
 # 		}
 # 	}
@@ -153,28 +154,17 @@ class TMXReader(Reader):
 						'translations': {}
 					}
 				elif path == ['tmx', 'body', 'tu', 'tuv']:
-					translation = {
-						'urls': set(),
-						'ipcs': set(),
-						'ipc_groups': set(),
-						'text': None
-					}
+					translation = defaultdict(set)
 			elif event == 'end':
 				if path == ['tmx', 'body', 'tu']:
 					yield unit
 				elif path == ['tmx', 'body', 'tu', 'prop']:
-					if element.get('type') == 'score-aligner':
-						unit['score'] = float(element.text.strip())
+					unit[element.get('type')] = float(element.text.strip()) if 'score' in element.get('type') else element.text.strip()
 				elif path == ['tmx', 'body', 'tu', 'tuv']:
 					unit['translations'][element.attrib[lang_key]] = translation
 					translations = None
 				elif path == ['tmx', 'body', 'tu', 'tuv', 'prop']:
-					if element.get('type') == 'source-document':
-						translation['urls'].add(element.text.strip())
-					elif element.get('type') == 'ipc':
-						translation['ipcs'].add(element.text.strip())
-					elif element.get('type') == 'ipc-group':
-						translation['ipc_groups'].add(element.text.strip())
+					translation[element.get('type')].add(element.text.strip())
 				elif path == ['tmx', 'body', 'tu', 'tuv', 'seg']:
 					translation['text'] = element.text.strip()
 
@@ -191,7 +181,7 @@ class TMXWriter(Writer):
 		self.writer.open('tmx', {'version': 1.4})
 		with self.writer.element('header', {
 			'o-tmf': 'PlainText',
-			'creationtool': 'tab2tmx',
+			'creationtool': 'tab2tmx.py',
 			'creationtoolversion': __VERSION__,
 			'datatype': 'PlainText',
 			'segtype': 'sentence',
@@ -217,15 +207,16 @@ class TMXWriter(Writer):
 
 	def write(self, unit):
 		with self.writer.element('tu', {'tuid': unit['id'], 'datatype': 'Text'}):
-			self._write_prop('score-aligner', unit.get('score'))
+			for key, value in unit.items():
+				if key not in {'id', 'translations'}:
+					self._write_prop(key, value)
 			for lang, translation in unit['translations'].items():
 				with self.writer.element('tuv', {'xml:lang': lang}):
-					self._write_prop('source-document', translation.get('urls'))
-					self._write_prop('ipc', translation.get('ipcs'))
-					self._write_prop('ipc-group', translation.get('ipc_groups'))
+					for key, value in translation.items():
+						if key != 'text':
+							self._write_prop(key, value)
 					with self.writer.element('seg'):
 						self.writer.write(translation['text'])
-
 
 
 class TabReader(Reader):
@@ -239,14 +230,14 @@ class TabReader(Reader):
 			src_url, trg_url, src_text, trg_text, score = line.split('\t')
 			yield {
 				'id': n,
-				'score': float(score),
+				'score-aligner': float(score),
 				'translations': {
 					self.src_lang: {
-						'urls': {src_url},
+						'source-document': {src_url},
 						'text': src_text
 					},
 					self.trg_lang: {
-						'urls': {trg_url},
+						'source-document': {trg_url},
 						'text': trg_text
 					}
 				}
@@ -266,7 +257,7 @@ class TabWriter(Writer):
 			self.languages = list(unit['translations'].keys())
 
 		self.writer.writerow(
-			  [next(iter(unit['translations'][lang]['urls'])) for lang in self.languages]
+			  [next(iter(unit['translations'][lang]['source-document'])) for lang in self.languages]
 			+ [unit['translations'][lang]['text'] for lang in self.languages])
 
 
@@ -294,8 +285,8 @@ class IPCLabeler(object):
 
 	def annotate(self, unit: dict) -> dict:
 		for lang, translation in unit['translations'].items():
-			keys = self.lut.keys() & {(lang.lower(), url) for url in translation['urls']}
-			translation['ipcs'] = set().union(*(self.lut[key] for key in keys))
+			keys = self.lut.keys() & {(lang.lower(), url) for url in translation['source-document']}
+			translation['ipc'] = set().union(*(self.lut[key] for key in keys))
 		return unit
 
 
@@ -317,11 +308,11 @@ class IPCGroupLabeler(object):
 	def find_group(self, ipc_code: str) -> Optional[str]:
 		for prefix, group, label in self.patterns:
 			if ipc_code.startswith(prefix):
-				return group
+				return prefix, group, label
 
 	def annotate(self, unit: dict) -> dict:
 		for lang, translation in unit['translations'].items():
-			translation['ipc_groups'] = set(group for group in map(self.find_group, translation['ipcs']) if group is not None)
+			translation['ipc-group'] = set().union(*(set(group) for group in map(self.find_group, translation['ipc']) if group is not None))
 		return unit
 
 
@@ -336,7 +327,13 @@ def deduplicate(reader: Iterator[dict], key: Callable[[dict], Any]) -> Iterator[
 			prev = unit
 		elif key(prev) == key(unit):
 			for lang, translation in unit['translations'].items():
-				prev['translations'][lang]['urls'] |= translation['urls']
+				for t_key, t_value in translation.items():
+					if isinstance(t_value, set):
+						prev['translations'][lang][t_key] |= t_value
+					elif isinstance(t_value, list):
+						prev['translations'][lang][t_key] += t_value
+					else:
+						pass # text, etc.
 		else:
 			yield prev
 			prev = unit
@@ -345,7 +342,7 @@ def deduplicate(reader: Iterator[dict], key: Callable[[dict], Any]) -> Iterator[
 		yield prev
 
 
-def unit_pred_intersection(key: str, values: Set[str]) -> Callable[[dict], bool]:
+def pred_prop_intersection(key: str, values: Set[str]) -> Callable[[dict], bool]:
 	return lambda unit: any(translation[key] & values for translation in unit['translations'].values())
 
 
@@ -422,10 +419,10 @@ if __name__ == '__main__':
 		reader = deduplicate(reader, key=text_key)
 
 	if args.filter_ipc:
-		reader = filter(unit_pred_intersection('ipcs', set(args.filter_ipc)), reader)
+		reader = filter(pred_prop_intersection('ipc', set(args.filter_ipc)), reader)
 		
 	if args.filter_ipc_group:
-		reader = filter(unit_pred_intersection('ipc_groups', set(args.filter_ipc_group)), reader)
+		reader = filter(pred_prop_intersection('ipc-group', set(args.filter_ipc_group)), reader)
 
 	# Main loop. with statement for writer so it can write header & footer
 	with writer:
