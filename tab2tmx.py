@@ -138,8 +138,8 @@ class TMXReader(Reader):
 				# Remove element from parent to keep the internal tree empty
 				stack[-1].remove(removed)
 
-		unit: dict = None
-		translation: dict = None
+		unit = None
+		translation = None
 
 		lang_key = '{http://www.w3.org/XML/1998/namespace}lang'
 		
@@ -378,8 +378,8 @@ if __name__ == '__main__':
 	fin = sys.stdin
 	fout = sys.stdout
 
-	reader: Reader = None
-	writer: Writer = None
+	reader = None
+	writer = None
 
 	# Autodetect input format if we're lazy
 	if not args.input_format:
@@ -400,10 +400,7 @@ if __name__ == '__main__':
 	elif args.input_format == 'tab':
 		reader = TabReader(fin, *args.input_languages)
 	elif not args.input_format:
-		print(f"Use --input-format tab or tmx to specify input format.", file=sys.stderr)
-		sys.exit(1)
-	else:
-		print(f"Unsupported input format: {args.input_format}", file=sys.stderr)
+		print("Use --input-format tab or tmx to specify input format.", file=sys.stderr)
 		sys.exit(1)
 
 	# Create writer
@@ -413,9 +410,6 @@ if __name__ == '__main__':
 		writer = TabWriter(fout, args.output_languages)
 	elif args.output_format == 'txt':
 		writer = TxtWriter(fout, args.output_languages[0])
-	else:
-		print(f"Unsupported output format: {args.output_format}", file=sys.stderr)
-		sys.exit(1)
 
 	# Optional filter & annotation steps for reader
 	if args.ipc_meta_files:
