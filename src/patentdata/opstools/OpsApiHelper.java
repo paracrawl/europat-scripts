@@ -319,7 +319,7 @@ public class OpsApiHelper {
                 boolean isOverloaded = updateRates(throttling.getValue());
                 if (isOverloaded) {
                     // add an arbitrary delay before the next call
-                    int delay = 5;
+                    int delay = 2;
                     msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
                     delayMessage = String.format("Server overloaded. Waiting %d minutes...", delay);
                 }
