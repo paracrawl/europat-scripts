@@ -319,9 +319,9 @@ public class OpsApiHelper {
                 boolean isOverloaded = updateRates(throttling.getValue());
                 if (isOverloaded) {
                     // add an arbitrary delay before the next call
-                    int delay = 2;
-                    msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
-                    delayMessage = String.format("Server overloaded. Waiting %d minutes...", delay);
+                    int delay = 30;
+                    msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.SECONDS);
+                    delayMessage = String.format("Server overloaded. Waiting %d seconds...", delay);
                 }
             }
             if (HttpStatus.SC_OK == statusCode) {
@@ -333,7 +333,7 @@ public class OpsApiHelper {
                 retry = true;
             } else if (rejection != null) {
                 if ("IndividualQuotaPerHour".equals(rejection.getValue())) {
-                    int delay = 60;
+                    int delay = 30;
                     msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
                     delayMessage = String.format("Hourly quota exceeded: retry after %d minutes...", delay);
                     retry = true;
