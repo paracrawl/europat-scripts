@@ -12,5 +12,5 @@
 	path = src/preprocess
 	url = git@github.com:kpu/preprocess.git
 [submodule "tmxutil"]
-	path = tmxutil
+	path = src/tmxutil
 	url = git@github.com:paracrawl/tmxutil.git
