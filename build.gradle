@@ -63,6 +63,8 @@ application {
     mainClassName = 'patentdata.opstools.PDFPatentPipeline'
 }
 
+defaultTasks 'clean', 'fatJar'
+
 task fatJar(type: Jar) {
     manifest {
         attributes 'Main-Class': 'patentdata.opstools.PDFPatentPipeline'
