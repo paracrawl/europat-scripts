@@ -104,7 +104,15 @@ public class FindFullText {
 
         @Override
         public void readCheckpointResults(PatentResultWriter writer) throws Exception {
-            // nothing to do
+            // don't run again on the patents where we already have a result
+            for (PatentInfo p : writer.readInfo()) {
+                String docId = p.getDocdbId();
+                if ((p.checkedClaims() || p.checkedDescription()) && docIds.contains(docId)) {
+                    setFullText(docId, p.getClaims(), p.getDescriptions());
+                    docIds.remove(docId);
+                    LOGGER.debug("  skipping " + docId);
+                }
+            }
         }
 
         @Override
@@ -120,6 +128,13 @@ public class FindFullText {
             p.setClaims(Collections.emptyList());
             p.setDescriptions(Collections.emptyList());
             return true;
+        }
+
+        private void setFullText(String docId, List<String> claimsLanguages, List<String> descriptionLanguages) {
+            PatentInfo p = getInfo(docId);
+            p.setClaims(claimsLanguages);
+            p.setDescriptions(descriptionLanguages);
+            updateInfo(p);
         }
 
         private void updateInfo(PatentInfo p) {
@@ -153,10 +168,7 @@ public class FindFullText {
                     descriptionLanguages.add(lang);
                 }
             }
-            PatentInfo p = getInfo(docId);
-            p.setClaims(claimsLanguages);
-            p.setDescriptions(descriptionLanguages);
-            updateInfo(p);
+            setFullText(docId, claimsLanguages, descriptionLanguages);
         }
     }
 }

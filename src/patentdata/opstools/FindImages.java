@@ -98,7 +98,15 @@ public class FindImages {
 
         @Override
         public void readCheckpointResults(PatentResultWriter writer) throws Exception {
-            // nothing to do
+            // don't run again on the patents where we already have a result
+            for (PatentInfo p : writer.readInfo()) {
+                String docId = p.getDocdbId();
+                if (p.checkedImages() && docIds.contains(docId)) {
+                    setImages(docId, p.getNPages(), p.getImages());
+                    docIds.remove(docId);
+                    LOGGER.debug("  skipping " + docId);
+                }
+            }
         }
 
         @Override
@@ -114,6 +122,15 @@ public class FindImages {
             return true;
         }
 
+        private void setImages(String docId, int nPages, String images) {
+            PatentInfo p = getInfo(docId);
+            p.setPages(nPages);
+            if (nPages > 0) {
+                p.setImages(images);
+            }
+            updateInfo(p);
+        }
+
         private void updateInfo(PatentInfo p) {
             String docId = p.getDocdbId();
             if (p.hasImages()) {
@@ -126,8 +143,8 @@ public class FindImages {
             LOGGER.trace(xmlString);
             Element docEl = OpsXmlHelper.parseResults(xmlString);
             String docId = OpsXmlHelper.getDocNumber(docEl, OpsApiHelper.INPUT_FORMAT_DOCDB);
-            PatentInfo p = getInfo(docId);
             int nPages = 0;
+            String images = null;
             NodeList nodes = docEl.getElementsByTagNameNS(OpsApiHelper.OPS_NS, "document-instance");
             for (int i = 0; i < nodes.getLength(); i++) {
                 Element el = (Element) nodes.item(i);
@@ -138,12 +155,11 @@ public class FindImages {
                         link = link.substring(IMAGE_PREFIX.length());
                     }
                     nPages = Integer.parseUnsignedInt(el.getAttribute("number-of-pages"));
-                    p.setImages(link);
+                    images = link;
                     break;
                 }
             }
-            p.setPages(nPages);
-            updateInfo(p);
+            setImages(docId, nPages, images);
         }
     }
 }
