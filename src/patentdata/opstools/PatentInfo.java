@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Helper class for gathering information about patents from the OPS
@@ -198,6 +199,34 @@ public class PatentInfo {
 
     public void setPages(int nPages) {
         info.put(PAGES_KEY, Integer.toString(nPages));
+    }
+
+    /**
+     * Return a map from languages to the count of text parts
+     * available in each language for this patent. This allows easy
+     * access to the list of languages where there is any text
+     * available, and those where all parts are available as text.
+     */
+    public Map<String, Integer> getLanguages() {
+        Map<String, Integer> langs = new TreeMap<>();
+        for (String lang : getTitles()) {
+            increment(langs, lang);
+        }
+        for (String lang : getAbstracts()) {
+            increment(langs, lang);
+        }
+        for (String lang : getClaims()) {
+            increment(langs, lang);
+        }
+        for (String lang : getDescriptions()) {
+            increment(langs, lang);
+        }
+        return langs;
+    }
+
+    public static void increment(Map<String, Integer> map, String key) {
+        int count = map.containsKey(key) ? map.get(key) : 0;
+        map.put(key, count + 1);
     }
 
     private static String combineValues(List<String> values) {
