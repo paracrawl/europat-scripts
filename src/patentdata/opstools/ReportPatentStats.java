@@ -1,8 +1,10 @@
 package patentdata.opstools;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 /**
@@ -21,6 +23,7 @@ public class ReportPatentStats {
         } else {
             System.out.println(String.format("No results for %s %d", countryCode, year));
         }
+        System.out.println();
         return true;
     }
 
@@ -32,6 +35,7 @@ public class ReportPatentStats {
         Map<String, Integer> claims = new TreeMap<>();
         Map<String, Integer> descriptions = new TreeMap<>();
         Map<String, Integer> allText = new TreeMap<>();
+        Set<String> anyText = new HashSet<>();
         int totalPatents = 0;
         int patentsProcessed = 0;
         int withTitle = 0;
@@ -48,34 +52,26 @@ public class ReportPatentStats {
             totalPatents++;
             if (p.hasTitle()) {
                 withTitle++;
-                for (String lang : p.getTitles()) {
-                    increment(titles, lang);
-                }
+                increment(titles, p.getTitles());
             }
-            List<String> languages = new ArrayList<>(p.getTitles());
             if (p.hasAbstract()) {
                 withAbstract++;
-                for (String lang : p.getAbstracts()) {
-                    increment(abstracts, lang);
-                }
+                increment(abstracts, p.getAbstracts());
             }
-            languages.retainAll(p.getAbstracts());
             if (p.hasClaims()) {
                 withClaims++;
-                for (String lang : p.getClaims()) {
-                    increment(claims, lang);
-                }
+                increment(claims, p.getClaims());
             }
-            languages.retainAll(p.getClaims());
             if (p.hasDescription()) {
                 withDescription++;
-                for (String lang : p.getDescriptions()) {
-                    increment(descriptions, lang);
-                }
+                increment(descriptions, p.getDescriptions());
             }
-            languages.retainAll(p.getDescriptions());
-            for (String lang : languages) {
-                increment(allText, lang);
+            Map<String, Integer> languages = p.getLanguages();
+            for (String lang : languages.keySet()) {
+                anyText.add(lang);
+                if (languages.get(lang) == 4) {
+                    PatentInfo.increment(allText, lang);
+                }
             }
             if (p.hasImages()) {
                 withImages++;
@@ -100,48 +96,58 @@ public class ReportPatentStats {
             if (titles.isEmpty() || titles.size() > 1) {
                 System.out.println(String.format("%8d with any title", withTitle));
             }
-            for (String lang : titles.keySet()) {
-                System.out.println(String.format("%8d with title in language \"%s\"", titles.get(lang), lang));
-            }
             if (abstracts.isEmpty() || abstracts.size() > 1) {
                 System.out.println(String.format("%8d with any abstract", withAbstract));
-            }
-            for (String lang : abstracts.keySet()) {
-                System.out.println(String.format("%8d with abstract in language \"%s\"", abstracts.get(lang), lang));
             }
             if (claims.isEmpty() || claims.size() > 1) {
                 System.out.println(String.format("%8d with any claims", withClaims));
             }
-            for (String lang : claims.keySet()) {
-                System.out.println(String.format("%8d with claims in language \"%s\"", claims.get(lang), lang));
-            }
             if (descriptions.isEmpty() || descriptions.size() > 1) {
                 System.out.println(String.format("%8d with any description", withDescription));
             }
-            for (String lang : descriptions.keySet()) {
-                System.out.println(String.format("%8d with description in language \"%s\"", descriptions.get(lang), lang));
-            }
-            // System.out.println(String.format("%8d patents fully checked", patentsProcessed));
             if (allText.isEmpty() || allText.size() > 1) {
                 System.out.println(String.format("%8d with all text parts in any language", withAllText));
             }
-            for (String lang : allText.keySet()) {
-                System.out.println(String.format("%8d with all text parts in language \"%s\"", allText.get(lang), lang));
-            }
-            System.out.println(String.format("%8d with missing information", missingInfo));
             System.out.println(String.format("%8d with any PDFs", withImages));
-            System.out.println(String.format("%8d with PDFs we want", withNeededImages));
+            if (withImages > 0) {
+                System.out.println(String.format("%8d with PDFs we want", withNeededImages));
+            }
+            if (missingInfo > 0) {
+                System.out.println(String.format("%8d with missing information", missingInfo));
+            }
+            for (String lang : OpsResultProcessor.sort(anyText)) {
+                System.out.println(String.format("  text in language \"%s\":", lang));
+                if (titles.containsKey(lang)) {
+                    System.out.println(String.format("%8d with title", titles.get(lang)));
+                }
+                if (abstracts.containsKey(lang)) {
+                    System.out.println(String.format("%8d with abstract", abstracts.get(lang)));
+                }
+                if (claims.containsKey(lang)) {
+                    System.out.println(String.format("%8d with claims", claims.get(lang)));
+                }
+                if (descriptions.containsKey(lang)) {
+                    System.out.println(String.format("%8d with description", descriptions.get(lang)));
+                }
+                if (allText.containsKey(lang)) {
+                    System.out.println(String.format("%8d with all text parts", allText.get(lang)));
+                }
+            }
             if (withNeededImages > 0) {
-                System.out.println(String.format("%8d PDF pages total (mean %.1f per patent)", totalNeededImages, averageImages));
+                System.out.println(String.format("  PDF pages:"));
+                System.out.println(String.format("%8d PDF pages needed (mean %.1f per patent)", totalNeededImages, averageImages));
                 System.out.println(String.format("%8d PDF pages downloaded already", totalDownloadedImages));
                 System.out.println(String.format("%8d PDF pages still to download", totalNeededImages - totalDownloadedImages));
             }
-            System.out.println(String.format("%8d patents still to check", totalPatents - patentsProcessed));
+            if (totalPatents > patentsProcessed) {
+                System.out.println(String.format("%8d patents still to check", totalPatents - patentsProcessed));
+            }
         }
     }
 
-    private static void increment(Map<String, Integer> map, String key) {
-        int count = map.containsKey(key) ? map.get(key) : 0;
-        map.put(key, count + 1);
+    private static void increment(Map<String, Integer> map, List<String> languages) {
+        for (String lang : languages) {
+            PatentInfo.increment(map, lang);
+        }
     }
 }
