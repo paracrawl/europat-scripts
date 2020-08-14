@@ -4,6 +4,7 @@ import java.io.InputStream;
 import java.io.StringWriter;
 
 import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.net.URI;
 
 import java.nio.charset.StandardCharsets;
@@ -294,7 +295,7 @@ public class OpsApiHelper {
             }
             try {
                 return processResponse(client, urlString, p, false);
-            } catch (ConnectionClosedException|SSLException|ConnectTimeoutException|SocketTimeoutException e) {
+            } catch (ConnectionClosedException|SSLException|ConnectTimeoutException|SocketTimeoutException|UnknownHostException e) {
                 retries++;
             }
         }
