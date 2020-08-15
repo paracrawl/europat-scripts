@@ -333,14 +333,14 @@ public class OpsApiHelper {
                 delayMessage = String.format("Retry after %d milliseconds...", msDelay);
                 retry = true;
             } else if (rejection != null) {
-                if ("IndividualQuotaPerHour".equals(rejection.getValue())) {
+                if (rejection.getValue().endsWith("QuotaPerHour")) {
                     int delay = 30;
                     msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
-                    delayMessage = String.format("Hourly quota exceeded: retry after %d minutes...", delay);
+                    delayMessage = String.format("%s exceeded: retry after %d minutes...", rejection.getValue(), delay);
                     retry = true;
-                } else if ("RegisteredQuotaPerWeek".equals(rejection.getValue())) {
+                } else if (rejection.getValue().endsWith("QuotaPerWeek")) {
                     weeklyQuotaExceeded = true;
-                    LOGGER.error("RegisteredQuotaPerWeek exceeded");
+                    LOGGER.error(String.format("%s exceeded: stopping", rejection.getValue()));
                     retry = false;
                 } else {
                     // some other rejection - log for human inspection
