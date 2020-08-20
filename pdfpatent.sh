@@ -9,6 +9,8 @@ YEAR_END=${4:-2019}
 
 if [ "$#" -gt 4 ]; then
     shift 4
+else
+    shift "$#"
 fi
 
 SCRIPTDIR="${HOME}/tmp"
