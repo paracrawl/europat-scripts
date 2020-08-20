@@ -237,8 +237,11 @@ public class PatentResultWriter {
         if (file.exists()) {
             for (String line : readLines(file)) {
                 String[] parts = line.split("\t", 2);
+                if (parts.length < 3) {
+                    continue;
+                }
                 String docId = parseDocId(parts[0]);
-                // ignore the middle part (date)
+                // ignore the middle part (the date)
                 String value = parseContent(parts[2], fileType);
                 values.add(Arrays.asList(docId, value));
             }
