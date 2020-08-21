@@ -99,6 +99,12 @@ public class DownloadPdfPatents {
             return true;
         }
 
+        @Override
+        public boolean processNoResults() throws Exception {
+            LOGGER.error(String.format("*** No PDF pages found for %s", getDocInfo().getDocdbId()));
+            return true;
+        }
+
         private int getPageCount() {
             return (index >= 0 && index < docInfo.size()) ? getDocInfo().getNPages() : 0;
         }

@@ -111,6 +111,12 @@ abstract class ValueProcessor extends OpsResultProcessor
         return true;
     }
 
+    @Override
+    public boolean processNoResults() throws Exception {
+        LOGGER.error(XML_MARKER, String.format("*** No %s result found for %s", endPoint, docIds.get(index)));
+        return true;
+    }
+
     private void processResult(String xmlString) throws Exception {
         String docId = docIds.get(index);
         LOGGER.trace(XML_MARKER, String.format("*** Processing %s result for %s", endPoint, docId));
