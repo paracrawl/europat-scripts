@@ -11,12 +11,20 @@ import java.util.TreeMap;
 
 import org.apache.http.HttpResponse;
 
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.MarkerManager;
+
 /**
  * Methods for collecting and processing OPS API results.
  *
  * Author: Elaine Farrow
  */
 public abstract class OpsResultProcessor {
+
+    /**
+     * Marker for logging information about XML processing.
+     */
+    protected static final Marker XML_MARKER = MarkerManager.getMarker("OPS_XML");
 
     /**
      * Information about patents, indexed by document ID.
