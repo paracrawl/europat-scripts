@@ -91,6 +91,7 @@ abstract class ValueProcessor extends OpsResultProcessor
             languages.addAll(getLanguages(p));
         }
         for (String language : languages) {
+            LOGGER.trace(String.format("  reading %s checkpoint file for %s", endPoint, language));
             List<PatentContent> content = new ArrayList<>();
             for (List<String> pair : writer.readContent(language, fileType)) {
                 String docId = pair.get(0);

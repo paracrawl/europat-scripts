@@ -11,6 +11,9 @@ import java.util.List;
 
 import org.apache.commons.io.FileUtils;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 /**
  * Methods for writing out text and PDF files.
  *
@@ -27,6 +30,8 @@ public class PatentResultWriter {
     public static final String IMAGE_FILE = "image";
     public static final String INFO_FILE = "info";
     public static final String TITLE_FILE = "title";
+
+    private static final Logger LOGGER = LogManager.getLogger();
 
     private final String countryCode;
     private final String year;
@@ -236,8 +241,10 @@ public class PatentResultWriter {
         List<List<String>> values = new ArrayList<>();
         if (file.exists()) {
             for (String line : readLines(file)) {
-                String[] parts = line.split("\t", 2);
+                String[] parts = line.split("\t", 3);
                 if (parts.length < 3) {
+                    LOGGER.trace(String.format("  bad line: %d parts", parts.length));
+                    LOGGER.trace(line.substring(0, Math.min(40, line.length())));
                     continue;
                 }
                 String docId = parseDocId(parts[0]);
