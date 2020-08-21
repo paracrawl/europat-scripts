@@ -32,6 +32,13 @@
         <TimeBasedTriggeringPolicy/>
       </Policies>
     </RollingFile>
+    <RollingFile name="RollingXmlFile" filePattern="${defaultLogDir}/xml_%d{yyyyMMddHH}.log">
+      <PatternLayout pattern="%msg%n"/>
+      <MarkerFilter marker="OPS_XML" onMatch="ACCEPT" onMismatch="DENY"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy/>
+      </Policies>
+    </RollingFile>
   </Appenders>
   <Loggers>
     <Root level="all">
