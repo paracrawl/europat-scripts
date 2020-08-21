@@ -111,15 +111,30 @@ abstract class ValueProcessor extends OpsResultProcessor
     }
 
     private void processResult(String xmlString) throws Exception {
-        LOGGER.trace("*** Processing result");
-        LOGGER.trace(xmlString);
-        PatentInfo p = getInfo(docIds.get(index));
+        String docId = docIds.get(index);
+        LOGGER.trace(XML_MARKER, String.format("*** Processing %s result for %s", endPoint, docId));
+        LOGGER.trace(XML_MARKER, xmlString);
+        PatentInfo p = getInfo(docId);
         Element docEl = OpsXmlHelper.parseResults(xmlString);
         // result will have either claims or description, not both
         NodeList claims = docEl.getElementsByTagName("claims");
-        processResults(p, claims, contentMap);
+        List<String> clangs = processResults(p, claims, contentMap);
+        if (clangs.isEmpty()) {
+            if (OpsApiHelper.ENDPOINT_CLAIMS.equals(endPoint)) {
+                LOGGER.trace(XML_MARKER, "  no claims found");
+            }
+        } else {
+            LOGGER.trace(XML_MARKER, String.format("  claims found for %s", String.join(" ", clangs)));
+        }
         NodeList descriptions = docEl.getElementsByTagName("description");
-        processResults(p, descriptions, contentMap);
+        List<String> dlangs = processResults(p, descriptions, contentMap);
+        if (dlangs.isEmpty()) {
+            if (OpsApiHelper.ENDPOINT_DESCRIPTION.equals(endPoint)) {
+                LOGGER.trace(XML_MARKER, "  no descriptions found");
+            }
+        } else {
+            LOGGER.trace(XML_MARKER, String.format("  descriptions found for %s", String.join(" ", dlangs)));
+        }
     }
 
     /**

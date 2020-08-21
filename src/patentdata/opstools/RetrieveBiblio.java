@@ -126,8 +126,8 @@ public class RetrieveBiblio {
         }
 
         private void processResult(String xmlString) throws Exception {
-            LOGGER.trace("*** Processing result");
-            LOGGER.trace(xmlString);
+            LOGGER.trace(XML_MARKER, "*** Processing biblio");
+            LOGGER.trace(XML_MARKER, xmlString);
             Element docEl = OpsXmlHelper.parseResults(xmlString);
             NodeList docNodes = docEl.getElementsByTagName("exchange-document");
             for (int i = 0; i < docNodes.getLength(); i++) {

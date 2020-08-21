@@ -148,8 +148,8 @@ public class FindFullText {
         }
 
         private void processResult(String xmlString) throws Exception {
-            LOGGER.trace("*** Processing full text");
-            LOGGER.trace(xmlString);
+            LOGGER.trace(XML_MARKER, "*** Processing full text");
+            LOGGER.trace(XML_MARKER, xmlString);
             Element docEl = OpsXmlHelper.parseResults(xmlString);
             String docId = OpsXmlHelper.getDocNumber(docEl, OpsApiHelper.INPUT_FORMAT_DOCDB);
             List<String> claimsLanguages = new ArrayList<>();

@@ -130,8 +130,8 @@ public class FindPatentIds {
         }
 
         private void processResult(String xmlString) throws Exception {
-            LOGGER.trace("*** Processing patent IDs");
-            LOGGER.trace(xmlString);
+            LOGGER.trace(XML_MARKER, "*** Processing patent IDs");
+            LOGGER.trace(XML_MARKER, xmlString);
             int rangeEnd = 0;
             int totalResults = 0;
             Element docEl = OpsXmlHelper.parseResults(xmlString);
@@ -144,14 +144,14 @@ public class FindPatentIds {
                 String end = ((Element) nodes.item(0)).getAttribute("end");
                 rangeEnd = Integer.parseUnsignedInt(end);
             }
-            LOGGER.trace(String.format("  total results: %d, range end: %d", totalResults, rangeEnd));
+            LOGGER.trace(XML_MARKER, String.format("  total results: %d, range end: %d", totalResults, rangeEnd));
             if (totalResults > MAX_RESULTS && isFirstBatch()) {
-                LOGGER.debug(String.format("  total results %d is over limit of %d", totalResults, MAX_RESULTS));
+                LOGGER.debug(XML_MARKER, String.format("  total results %d is over limit of %d", totalResults, MAX_RESULTS));
                 if (expandCurrentQuery()) {
                     // ignore these results and use a smaller granularity instead
                     return;
                 } else {
-                    LOGGER.warn(String.format("%d results will not be retrieved", totalResults - MAX_RESULTS));
+                    LOGGER.error(XML_MARKER, String.format("%d results will not be retrieved", totalResults - MAX_RESULTS));
                 }
             }
 
@@ -167,7 +167,7 @@ public class FindPatentIds {
             }
             if (rangeEnd >= totalResults || rangeEnd >= MAX_RESULTS || nodes.getLength() == 0) {
                 hasMore = false;
-                LOGGER.trace(String.format("No more results for this query"));
+                LOGGER.trace(XML_MARKER, String.format("No more results for this query"));
             }
         }
 
