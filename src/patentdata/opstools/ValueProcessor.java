@@ -97,6 +97,7 @@ abstract class ValueProcessor extends OpsResultProcessor
                 content.add(new PatentContent(getInfo(docId), pair.get(1)));
                 // don't run again on the patents where we already have the result
                 docIds.remove(docId);
+                LOGGER.debug("  already got " + docId);
             }
             if (! content.isEmpty()) {
                 contentMap.put(language, content);

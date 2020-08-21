@@ -104,7 +104,7 @@ public class FindImages {
                 if (p.checkedImages() && docIds.contains(docId)) {
                     setImages(docId, p.getNPages(), p.getImages());
                     docIds.remove(docId);
-                    LOGGER.debug("  skipping " + docId);
+                    LOGGER.debug("  already got " + docId);
                 }
             }
         }

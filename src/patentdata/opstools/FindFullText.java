@@ -110,7 +110,7 @@ public class FindFullText {
                 if ((p.checkedClaims() || p.checkedDescription()) && docIds.contains(docId)) {
                     setFullText(docId, p.getClaims(), p.getDescriptions());
                     docIds.remove(docId);
-                    LOGGER.debug("  skipping " + docId);
+                    LOGGER.debug("  already got " + docId);
                 }
             }
         }

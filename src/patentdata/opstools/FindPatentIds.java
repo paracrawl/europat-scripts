@@ -112,6 +112,7 @@ public class FindPatentIds {
         public void readCheckpointResults(PatentResultWriter writer) throws Exception {
             // only run the search once
             if (writer.infoFileExists()) {
+                LOGGER.debug("  search done");
                 queries.clear();
             }
         }

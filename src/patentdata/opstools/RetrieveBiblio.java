@@ -116,6 +116,7 @@ public class RetrieveBiblio {
             if (writer.allFilesExist(titleLanguages, PatentResultWriter.TITLE_FILE)
                 && writer.allFilesExist(abstractLanguages, PatentResultWriter.ABSTRACT_FILE)) {
                 docIds.clear();
+                LOGGER.debug("  biblio done");
             }
         }
 
