@@ -19,7 +19,7 @@
         <TimeBasedTriggeringPolicy/>
       </Policies>
     </RollingFile>
-    <RollingFile name="RollingErrFile" filePattern="${defaultLogDir}/err_%d{yyyyMMddHH}.log">
+    <RollingFile name="RollingErrFile" filePattern="${defaultLogDir}/err_%d{yyyyMMdd}.log">
       <PatternLayout pattern="${defaultPatternLayout}"/>
       <Policies>
         <TimeBasedTriggeringPolicy/>
