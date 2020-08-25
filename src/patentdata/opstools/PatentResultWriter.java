@@ -2,12 +2,16 @@ package patentdata.opstools;
 
 import java.io.File;
 import java.io.InputStream;
+import java.io.IOException;
+
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.apache.commons.io.FileUtils;
 
@@ -142,6 +146,22 @@ public class PatentResultWriter {
             }
         }
         return true;
+    }
+
+    /**
+     * How many entries of the given type have been downloaded?
+     */
+    public long countEntries(String language, String fileType) {
+        long total = 0;
+        File f = getLanguageFile(language, fileType);
+        if (f.exists()) {
+            try (Stream<String> stream = Files.lines(f.toPath())) {
+                total = stream.count();
+            } catch (IOException e) {
+                // ignore
+            }
+        }
+        return total;
     }
 
     /**
