@@ -45,7 +45,7 @@ do
             if [[ ! -z "${YEARS}" ]]; then
                 YEARS="${YEARS}\t${MATCHYEAR}"
             fi
-            COUNT=`grep -F -f "${MATCHFILE}" ${INFOFILE} | wc -l`
+            COUNT=`grep -F -f "${MATCHFILE}" "${INFOFILE}" | wc -l`
             COUNTS="${COUNTS}\t${COUNT}"
             if [[ "${YEAR}" = "${YEAR_END}" ]]; then
                 TOTAL=`wc -l "${MATCHFILE}" | cut -d' ' -f1`
