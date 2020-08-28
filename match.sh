@@ -7,7 +7,7 @@ YEAR_START=${2:-1994}
 YEAR_END=${3:-2019}
 
 SCRIPTDIR="${HOME}/tmp"
-FAMILYDIR="/home/mui/europat/family"
+FAMILYDIR="/fs/bil0/europat/family"
 INFODIR="/fs/loki0/data/pdfpatents"
 
 for (( MATCHYEAR="${YEAR_START}"; MATCHYEAR<="${YEAR_END}"; MATCHYEAR++ ))
