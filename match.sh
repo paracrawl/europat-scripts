@@ -2,6 +2,10 @@
 
 # ./match.sh NO 2018 2019 | more
 
+# The environment variable COUNT_PDFS (set externally) determines
+# whether we count all matching patents, or only those where we have
+# downloaded the PDF files.
+
 COUNTRY=${1:-HR}
 YEAR_START=${2:-1994}
 YEAR_END=${3:-2019}
@@ -22,10 +26,18 @@ do
 done
 
 YEARS="year"
+TOTALS="total"
 for (( YEAR="${YEAR_START}"; YEAR<="${YEAR_END}"; YEAR++ ))
 do
     COUNTS=""
     YEARDIR="${INFODIR}/${COUNTRY}-${YEAR}"
+    if [[ -z "${COUNT_PDFS}" ]]; then
+        INFOFILE=`ls "${YEARDIR}"/*-info.txt`
+    else
+        INFOFILE="${SCRIPTDIR}/${COUNTRY}-${YEAR}-pdfs.txt"
+        ls "${YEARDIR}" | grep '\-1.pdf' | cut -d'-' -f1-3 | sed s/-/./g > "${INFOFILE}"
+    fi
+    # iterate through match years in reverse order
     for (( MATCHYEAR="${YEAR_END}"; MATCHYEAR>="${YEAR_START}"; MATCHYEAR-- ))
     do
         MATCHFILE="${SCRIPTDIR}/${COUNTRY}-${MATCHYEAR}-matched.txt"
@@ -33,8 +45,12 @@ do
             if [[ ! -z "${YEARS}" ]]; then
                 YEARS="${YEARS}\t${MATCHYEAR}"
             fi
-            COUNT=`grep -F -f "${MATCHFILE}" "${YEARDIR}"/*-info.txt | wc -l`
+            COUNT=`grep -F -f "${MATCHFILE}" ${INFOFILE} | wc -l`
             COUNTS="${COUNTS}\t${COUNT}"
+            if [[ "${YEAR}" = "${YEAR_END}" ]]; then
+                TOTAL=`wc -l "${MATCHFILE}" | cut -d' ' -f1`
+                TOTALS="${TOTALS}\t${TOTAL}"
+            fi
         fi
     done
 
@@ -45,3 +61,5 @@ do
     fi
     echo -e "${YEAR}${COUNTS}"
 done
+
+echo -e "\n${TOTALS}"
