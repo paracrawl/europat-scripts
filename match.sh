@@ -20,23 +20,20 @@ do
     if [ ! -s "${MATCHFILE}" ]; then
         TABFILE="${FAMILYDIR}/EN-${COUNTRY}/EN-${COUNTRY}-${MATCHYEAR}-FamilyID.tab"
         if [ -f "${TABFILE}" ]; then
-            grep -o "${COUNTRY}[0-9A-Z\-]*" "${TABFILE}" | sed s/-/./g > "${MATCHFILE}"
+            cut -f3 "${TABFILE}" | sed s/-/./g > "${MATCHFILE}"
         fi
     fi
 done
 
 YEARS="year"
 TOTALS="total"
+FIELDPATTERN='^[^[:space:]]+\t[^[:space:]]+\t[^[:space:]]+\t[^[:space:]]+'
+PDFPATTERN='\t[^[:space:]]+$'
 for (( YEAR="${YEAR_START}"; YEAR<="${YEAR_END}"; YEAR++ ))
 do
     COUNTS=""
     YEARDIR="${INFODIR}/${COUNTRY}-${YEAR}"
-    if [[ -z "${COUNT_PDFS}" ]]; then
-        INFOFILE=`ls "${YEARDIR}"/*-info.txt`
-    else
-        INFOFILE="${SCRIPTDIR}/${COUNTRY}-${YEAR}-pdfs.txt"
-        ls "${YEARDIR}" | grep '\-1.pdf' | cut -d'-' -f1-3 | sed s/-/./g > "${INFOFILE}"
-    fi
+    INFOFILE=`ls "${YEARDIR}"/*-info.txt`
     # iterate through match years in reverse order
     for (( MATCHYEAR="${YEAR_END}"; MATCHYEAR>="${YEAR_START}"; MATCHYEAR-- ))
     do
@@ -45,7 +42,12 @@ do
             if [[ ! -z "${YEARS}" ]]; then
                 YEARS="${YEARS}\t${MATCHYEAR}"
             fi
-            COUNT=`grep -F -f "${MATCHFILE}" "${INFOFILE}" | wc -l`
+            if [[ -z "${COUNT_PDFS}" ]]; then
+                COUNT=`grep -cF -f "${MATCHFILE}" "${INFOFILE}"`
+            else
+                # find rows with a missing text field and with PDFs available
+                COUNT=`grep -F -f "${MATCHFILE}" "${INFOFILE}" | cut -f4-8 | grep -vP "${FIELDPATTERN}" | grep -P "${PDFPATTERN}" | wc -l`
+            fi
             COUNTS="${COUNTS}\t${COUNT}"
             if [[ "${YEAR}" = "${YEAR_END}" ]]; then
                 TOTAL=`wc -l "${MATCHFILE}" | cut -d' ' -f1`
