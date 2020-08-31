@@ -12,6 +12,9 @@ import java.util.TreeMap;
  *
  * This class uses the information directly from the info file.
  *
+ * It also looks inside the configured output directories to see how
+ * many files have been downloaded so far.
+ *
  * Author: Elaine Farrow
  */
 public class ReportPatentStats {
