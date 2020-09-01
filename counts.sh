@@ -43,7 +43,7 @@ do
     PDF_MATCH=`cut -f4-8 "${INFOFILE}" | grep -vP "${TEXT_PATTERN}" | cut -f5  | grep -P "${COUNTRY}" | wc -l`
 
     # print output
-    printf "${YEAR}: ${ENTRY_COUNT} entries\n"
+    printf "${COUNTRY} ${YEAR}: ${ENTRY_COUNT} entries\n"
     printf "%6d / %-5d titles have PDFs\n" "${TITLE_MATCH}" "${TITLE_COUNT}"
     printf "%6d / %-5d abstracts have PDFs\n" "${ABSTRACT_MATCH}" "${ABSTRACT_COUNT}"
     printf "%6d / %-5d claims have PDFs\n" "${CLAIM_MATCH}" "${CLAIM_COUNT}"
