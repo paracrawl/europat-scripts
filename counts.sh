@@ -7,7 +7,7 @@ YEAR_START=${2:-1994}
 YEAR_END=${3:-2019}
 
 SCRIPTDIR="${HOME}/tmp"
-INFODIR="/fs/loki0/data/pdfpatents"
+INFODIR="${INFODIR:-/fs/loki0/data/pdfpatents}"
 
 TEXT_PATTERN='^[^[:space:]]+\t[^[:space:]]+\t[^[:space:]]+\t[^[:space:]]+'
 for (( YEAR="${YEAR_START}"; YEAR<="${YEAR_END}"; YEAR++ ))
@@ -18,28 +18,43 @@ do
         continue
     fi
     INFOFILE=`ls "${YEARDIR}"/*-info.txt`
+    TITLEFILE="${YEARDIR}/${COUNTRY}-${COUNTRY}-${YEAR}-title.tab"
+    ABSTRACTFILE="${YEARDIR}/${COUNTRY}-${COUNTRY}-${YEAR}-abstract.tab"
+    CLAIMSFILE="${YEARDIR}/${COUNTRY}-${COUNTRY}-${YEAR}-claims.tab"
+    DESCRIPTIONFILE="${YEARDIR}/${COUNTRY}-${COUNTRY}-${YEAR}-title.tab"
 
-    # find entries with parts as text
+    # find downloaded entries
     ENTRIES=`wc -l ${INFOFILE} | cut -d' ' -f1`
-    TITLECOUNT=`cut -f4 "${INFOFILE}" | grep "${COUNTRY}" | wc -l`
-    ABSTRACTCOUNT=`cut -f5 "${INFOFILE}" | grep "${COUNTRY}" | wc -l`
-    CLAIMCOUNT=`cut -f6 "${INFOFILE}" | grep "${COUNTRY}" | wc -l`
-    DESCRIPTIONCOUNT=`cut -f7 "${INFOFILE}" | grep "${COUNTRY}" | wc -l`
-    PDFCOUNT=`cut -f8 "${INFOFILE}" | grep "${COUNTRY}" | wc -l`
+    TITLE_DOWNLOADS=`find "${YEARDIR}" -maxdepth 1 -type f -name "${COUNTRY}-${COUNTRY}-${YEAR}-title.tab" | xargs wc -l | cut -d' ' -f1`
+    ABSTRACT_DOWNLOADS=`find "${YEARDIR}" -maxdepth 1 -type f -name "${COUNTRY}-${COUNTRY}-${YEAR}-abstract.tab" | xargs wc -l | cut -d' ' -f1`
+    CLAIMS_DOWNLOADS=`find "${YEARDIR}" -maxdepth 1 -type f -name "${COUNTRY}-${COUNTRY}-${YEAR}-claims.tab" | xargs wc -l | cut -d' ' -f1`
+    DESCRIPTION_DOWNLOADS=`find "${YEARDIR}" -maxdepth 1 -type f -name "${COUNTRY}-${COUNTRY}-${YEAR}-description.tab" | xargs wc -l | cut -d' ' -f1`
+    PDF_DOWNLOADS=`ls "${YEARDIR}" | grep -c "\-1.pdf"`
+
+    # find info file entries
+    TITLE_COUNT=`cut -f4 "${INFOFILE}" | grep "${COUNTRY}" | wc -l`
+    ABSTRACT_COUNT=`cut -f5 "${INFOFILE}" | grep "${COUNTRY}" | wc -l`
+    CLAIM_COUNT=`cut -f6 "${INFOFILE}" | grep "${COUNTRY}" | wc -l`
+    DESCRIPTION_COUNT=`cut -f7 "${INFOFILE}" | grep "${COUNTRY}" | wc -l`
+    PDF_COUNT=`cut -f8 "${INFOFILE}" | grep "${COUNTRY}" | wc -l`
 
     # find rows with parts as text and with PDFs available
-    TITLEMATCH=`cut -f4-8 "${INFOFILE}" | grep -vP "${TEXT_PATTERN}" | cut -f1,5  | grep -P "${COUNTRY}.*${COUNTRY}" | wc -l`
-    ABSTRACTMATCH=`cut -f4-8 "${INFOFILE}" | grep -vP "${TEXT_PATTERN}" | cut -f2,5  | grep -P "${COUNTRY}.*${COUNTRY}" | wc -l`
-    CLAIMMATCH=`cut -f4-8 "${INFOFILE}" | grep -vP "${TEXT_PATTERN}" | cut -f3,5  | grep -P "${COUNTRY}.*${COUNTRY}" | wc -l`
-    DESCRIPTIONMATCH=`cut -f4-8 "${INFOFILE}" | grep -vP "${TEXT_PATTERN}" | cut -f4,5  | grep -P "${COUNTRY}.*${COUNTRY}" | wc -l`
-    PDFMATCH=`cut -f4-8 "${INFOFILE}" | grep -vP "${TEXT_PATTERN}" | cut -f5  | grep -P "${COUNTRY}" | wc -l`
-    PDFDOWNLOADS=`ls "${YEARDIR}" | grep -c "\-1.pdf"`
+    TITLE_MATCH=`cut -f4-8 "${INFOFILE}" | grep -vP "${TEXT_PATTERN}" | cut -f1,5  | grep -P "${COUNTRY}.*${COUNTRY}" | wc -l`
+    ABSTRACT_MATCH=`cut -f4-8 "${INFOFILE}" | grep -vP "${TEXT_PATTERN}" | cut -f2,5  | grep -P "${COUNTRY}.*${COUNTRY}" | wc -l`
+    CLAIM_MATCH=`cut -f4-8 "${INFOFILE}" | grep -vP "${TEXT_PATTERN}" | cut -f3,5  | grep -P "${COUNTRY}.*${COUNTRY}" | wc -l`
+    DESCRIPTION_MATCH=`cut -f4-8 "${INFOFILE}" | grep -vP "${TEXT_PATTERN}" | cut -f4,5  | grep -P "${COUNTRY}.*${COUNTRY}" | wc -l`
+    PDF_MATCH=`cut -f4-8 "${INFOFILE}" | grep -vP "${TEXT_PATTERN}" | cut -f5  | grep -P "${COUNTRY}" | wc -l`
 
     # print output
-    printf "${YEAR}: ${ENTRIES} entries, ${PDFCOUNT} with PDFs\n"
-    printf "%6d / %-5d titles with PDFs\n" "${TITLEMATCH}" "${TITLECOUNT}"
-    printf "%6d / %-5d abstracts with PDFs\n" "${ABSTRACTMATCH}" "${ABSTRACTCOUNT}"
-    printf "%6d / %-5d claims with PDFs\n" "${CLAIMMATCH}" "${CLAIMCOUNT}"
-    printf "%6d / %-5d descriptions with PDFs\n" "${DESCRIPTIONMATCH}" "${DESCRIPTIONCOUNT}"
-    printf "%6d / %-5d PDFs downloaded\n" "${PDFDOWNLOADS}" "${PDFMATCH}"
+    printf "${YEAR}: ${ENTRIES} entries\n"
+    printf "%6d / %-5d titles have PDFs\n" "${TITLE_MATCH}" "${TITLE_COUNT}"
+    printf "%6d / %-5d abstracts have PDFs\n" "${ABSTRACT_MATCH}" "${ABSTRACT_COUNT}"
+    printf "%6d / %-5d claims have PDFs\n" "${CLAIM_MATCH}" "${CLAIM_COUNT}"
+    printf "%6d / %-5d descriptions have PDFs\n" "${DESCRIPTION_MATCH}" "${DESCRIPTION_COUNT}"
+    printf "%6d / %-5d PDFs wanted\n" "${PDF_MATCH}" "${PDF_COUNT}"
+    printf "%6d titles downloaded\n" "${TITLE_DOWNLOADS}"
+    printf "%6d abstracts downloaded\n" "${ABSTRACT_DOWNLOADS}"
+    printf "%6d claims downloaded\n" "${CLAIM_DOWNLOADS}"
+    printf "%6d descriptions downloaded\n" "${DESCRIPTION_DOWNLOADS}"
+    printf "%6d PDFs downloaded\n" "${PDF_DOWNLOADS}"
 done
