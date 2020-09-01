@@ -8,11 +8,11 @@
 
 COUNTRY=${1:-HR}
 YEAR_START=${2:-1994}
-YEAR_END=${3:-2019}
+YEAR_END=${3:-${2:-2019}}
 
 SCRIPTDIR="${HOME}/tmp"
-FAMILYDIR="/fs/bil0/europat/family"
-INFODIR="/fs/loki0/data/pdfpatents"
+FAMILYDIR="${FAMILYDIR:-/fs/bil0/europat/family}"
+INFODIR="${INFODIR:-/fs/loki0/data/pdfpatents}"
 
 for (( MATCHYEAR="${YEAR_START}"; MATCHYEAR<="${YEAR_END}"; MATCHYEAR++ ))
 do
