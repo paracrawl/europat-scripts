@@ -31,6 +31,8 @@ public class DownloadPdfPatents {
         extends OpsResultProcessor
         implements OpsQueryGenerator {
 
+        // For now, we won't download very long PDFs
+        private static final int MAX_PAGES = 25;
         private static final Logger LOGGER = LogManager.getLogger();
 
         private final List<PatentInfo> docInfo = new ArrayList<>();
@@ -45,6 +47,10 @@ public class DownloadPdfPatents {
             for (PatentInfo p : inputInfo) {
                 // if any pages are missing, download this patent again
                 if (shouldProcess(p) && ! writer.allPdfFilesExist(p)) {
+                    if (p.getNPages() > MAX_PAGES) {
+                        LOGGER.debug("  skipping " + p.getDocdbId() + " - too many pages");
+                        continue;
+                    }
                     docInfo.add(p);
                 } else {
                     LOGGER.debug("  skipping " + p.getDocdbId());
