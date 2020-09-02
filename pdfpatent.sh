@@ -1,11 +1,11 @@
 #! /bin/bash
 
-# nohup ./pdfpatent.sh NO pdf > script.out &
+# nohup ./pdfpatent.sh pdf NO 2018 > script.out &
 
-COUNTRY=${1:-HR}
-COMMAND=${2:-report}
+COMMAND=${1:-report}
+COUNTRY=${2:-HR}
 YEAR_START=${3:-1994}
-YEAR_END=${4:-2019}
+YEAR_END=${4:-${3:-2019}}
 
 if [ "$#" -gt 4 ]; then
     shift 4
