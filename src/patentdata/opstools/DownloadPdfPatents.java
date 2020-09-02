@@ -20,6 +20,9 @@ import org.apache.logging.log4j.LogManager;
  */
 public class DownloadPdfPatents {
 
+    // For now, we won't download very long PDFs
+    public static final int MAX_PAGES = 25;
+
     public static boolean run(OpsApiHelper api, PatentResultWriter writer, List<PatentInfo> info) throws Exception {
         PdfDownloader p = new PdfDownloader(info, writer);
         return api.callApi(p, p, writer);
@@ -31,8 +34,6 @@ public class DownloadPdfPatents {
         extends OpsResultProcessor
         implements OpsQueryGenerator {
 
-        // For now, we won't download very long PDFs
-        private static final int MAX_PAGES = 25;
         private static final Logger LOGGER = LogManager.getLogger();
 
         private final List<PatentInfo> docInfo = new ArrayList<>();
