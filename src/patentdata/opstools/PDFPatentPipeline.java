@@ -258,8 +258,10 @@ public class PDFPatentPipeline {
                 LOGGER.error(stage + " stage failed", e);
                 throw(e);
             } finally {
-                // update the master copy after each stage, even in case of errors
-                writer.writeInfo(info);
+                if (! STAGE_REPORT.equals(stage)) {
+                    // update the master copy after each stage, even in case of errors
+                    writer.writeInfo(info);
+                }
             }
         }
         return info;
