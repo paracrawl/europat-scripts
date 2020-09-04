@@ -7,6 +7,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.MarkerManager;
+
 /**
  * Methods for reporting stats about patents.
  *
@@ -31,6 +36,9 @@ public class ReportPatentStats {
     }
 
     // -------------------------------------------------------------------------------
+
+    private static final Logger LOGGER = LogManager.getLogger();
+    private static final Marker REPORT_MARKER = MarkerManager.getMarker("REPORT");
 
     private static void printStats(PatentResultWriter writer, List<PatentInfo> info) {
         Map<String, Integer> titles = new TreeMap<>();
@@ -87,6 +95,7 @@ public class ReportPatentStats {
                 patentsProcessed++;
                 if (p.hasTitle() && p.hasAbstract() && p.hasClaims() && p.hasDescription()) {
                     withAllText++;
+                    LOGGER.trace(REPORT_MARKER, p.getDocdbId() + " all text available");
                 } else if (p.hasImages()) {
                     int nPages = p.getNPages();
                     int nDownloadedPages = writer.countPdfFiles(p);
@@ -95,17 +104,19 @@ public class ReportPatentStats {
                     totalUnreadDownloadedPages += nDownloadedPages;
                     if (nPages > DownloadPdfPatents.MAX_PAGES) {
                         withTooManyPages++;
+                        LOGGER.trace(REPORT_MARKER, p.getDocdbId() + " too many pages");
                     } else {
                         withNeededPages++;
                         totalNeededPages += nPages;
                         totalNeededDownloadedPages += nDownloadedPages;
+                        LOGGER.trace(REPORT_MARKER, p.getDocdbId() + " okay");
                     }
                 } else {
                     missingInfo++;
+                    LOGGER.trace(REPORT_MARKER, p.getDocdbId() + " information missing");
                 }
             }
         }
-        double averagePages = withNeededPages == 0 ? 0 : totalNeededPages/ withNeededPages;
 
         System.out.println(String.format("%8d patents found", totalPatents));
         if (totalPatents > 0) {
@@ -124,17 +135,18 @@ public class ReportPatentStats {
             if (allText.isEmpty() || allText.size() > 1) {
                 System.out.println(String.format("%8d with all text parts in any language", withAllText));
             }
-            System.out.println(String.format("%8d with any PDFs", withPages));
-            if (withPages > 0) {
-                System.out.println(String.format("%8d with PDFs we want", withNeededPages));
-            }
-            if (withTooManyPages > 0) {
-                System.out.println(String.format("%8d with too many PDF pages", withTooManyPages));
-                System.out.println(String.format("%8d PDF pages found", totalUnreadPages));
-                // System.out.println(String.format("%8d PDF pages downloaded", totalUnreadDownloadedPages));
-            }
             if (missingInfo > 0) {
                 System.out.println(String.format("%8d with missing information", missingInfo));
+            }
+            System.out.println(String.format("%8d with any PDFs", withPages));
+            if (withUnreadPages > 0) {
+                System.out.println(String.format("%8d with PDFs we might want", withUnreadPages));
+                System.out.println(String.format("%8d PDF pages found", totalUnreadPages));
+                System.out.println(String.format("%8d PDF pages downloaded", totalUnreadDownloadedPages));
+                if (withTooManyPages > 0) {
+                    System.out.println(String.format("%8d with too many pages (limit %d)", withTooManyPages, DownloadPdfPatents.MAX_PAGES));
+                }
+                System.out.println(String.format("%8d with PDFs we need", withNeededPages));
             }
             StringBuilder allDownloads = new StringBuilder();
             for (String lang : OpsResultProcessor.sort(anyText)) {
@@ -179,6 +191,7 @@ public class ReportPatentStats {
             System.out.print(allDownloads);
             if (withNeededPages > 0) {
                 System.out.println(String.format("  PDF pages:"));
+                double averagePages = totalNeededPages/ (double) withNeededPages;
                 System.out.println(String.format("%8d PDF pages needed (mean %.1f per patent)", totalNeededPages, averagePages));
                 System.out.println(String.format("%8d PDF pages downloaded already", totalNeededDownloadedPages));
                 System.out.println(String.format("%8d PDF pages still to download", totalNeededPages - totalNeededDownloadedPages));
