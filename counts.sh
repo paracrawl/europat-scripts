@@ -40,23 +40,23 @@ do
     DESCRIPTION_COUNT=`cut -f7 "${INFOFILE}" | grep "${COUNTRY}" | wc -l`
     PDF_COUNT=`cut -f8 "${INFOFILE}" | grep "${COUNTRY}" | wc -l`
 
-    # locate entries lacking at least one text part; filter by max PDF page limit
-    cut -f4- "${INFOFILE}" | grep -vP "${TEXT_PATTERN}" | awk -F "\t" -v limit="${PDF_PAGE_LIMIT}" '$6 <= limit' > "${TMPFILE}"
+    # locate entries with PDFs and lacking at least one text part; filter by PDF page limit
+    cut -f4- "${INFOFILE}" | grep -vP "${TEXT_PATTERN}" | awk -F "\t" -v limit="${PDF_PAGE_LIMIT}" '($6 > 0) && ($6 <= limit)' > "${TMPFILE}"
 
-    # count filtered entries with parts as text and with PDFs available
-    TITLE_MATCH=`cut -f1,5 "${TMPFILE}" | grep -P "${COUNTRY}.*${COUNTRY}" | wc -l`
-    ABSTRACT_MATCH=`cut -f2,5 "${TMPFILE}" | grep -P "${COUNTRY}.*${COUNTRY}" | wc -l`
-    CLAIM_MATCH=`cut -f3,5 "${TMPFILE}" | grep -P "${COUNTRY}.*${COUNTRY}" | wc -l`
-    DESCRIPTION_MATCH=`cut -f4,5 "${TMPFILE}" | grep -P "${COUNTRY}.*${COUNTRY}" | wc -l`
-    PDF_MATCH=`cut -f6 "${TMPFILE}" | awk '$1 > 0' | wc -l`
+    # count filtered entries in the main language
+    PDF_MATCH=`wc -l "${TMPFILE}" | cut -d' ' -f1`
+    TITLE_MATCH=`cut -f1 "${TMPFILE}" | grep "${COUNTRY}" | wc -l`
+    ABSTRACT_MATCH=`cut -f2 "${TMPFILE}" | grep "${COUNTRY}" | wc -l`
+    CLAIM_MATCH=`cut -f3 "${TMPFILE}" | grep "${COUNTRY}" | wc -l`
+    DESCRIPTION_MATCH=`cut -f4 "${TMPFILE}" | grep "${COUNTRY}" | wc -l`
 
     # print output
     printf "${COUNTRY} ${YEAR}: ${ENTRY_COUNT} entries\n"
-    printf "%6d / %-5d titles have PDFs\n" "${TITLE_MATCH}" "${TITLE_COUNT}"
-    printf "%6d / %-5d abstracts have PDFs\n" "${ABSTRACT_MATCH}" "${ABSTRACT_COUNT}"
-    printf "%6d / %-5d claims have PDFs\n" "${CLAIM_MATCH}" "${CLAIM_COUNT}"
-    printf "%6d / %-5d descriptions have PDFs\n" "${DESCRIPTION_MATCH}" "${DESCRIPTION_COUNT}"
     printf "%6d / %-5d PDFs are wanted\n" "${PDF_MATCH}" "${PDF_COUNT}"
+    printf "%6d / %-5d titles have wanted PDFs\n" "${TITLE_MATCH}" "${TITLE_COUNT}"
+    printf "%6d / %-5d abstracts have wanted PDFs\n" "${ABSTRACT_MATCH}" "${ABSTRACT_COUNT}"
+    printf "%6d / %-5d claims have wanted PDFs\n" "${CLAIM_MATCH}" "${CLAIM_COUNT}"
+    printf "%6d / %-5d descriptions have wanted PDFs\n" "${DESCRIPTION_MATCH}" "${DESCRIPTION_COUNT}"
     printf "%6d titles downloaded\n" "${TITLE_DOWNLOADS}"
     printf "%6d abstracts downloaded\n" "${ABSTRACT_DOWNLOADS}"
     printf "%6d claims downloaded\n" "${CLAIM_DOWNLOADS}"
