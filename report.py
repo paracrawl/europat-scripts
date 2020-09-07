@@ -52,13 +52,6 @@ def calculate_counts(args, year):
         for line in file:
             counted[ENTRIES] += 1
             _, _, _, t, a, c, d, p, n = line.split('\t')
-            incomplete[TITLES] += 1 * 'null' in t
-            incomplete[ABSTRACTS] += 1 * 'null' in a
-            incomplete[CLAIMS] += 1 * 'null' in c
-            incomplete[DESCRIPTIONS] += 1 * 'null' in d
-            incomplete[PDF] += 1 * 'null' in n
-            if 'null' in ' '.join([t, a, c, d, n]):
-                incomplete[ENTRIES] += 1
             title = 1 * args.country in t
             abstract = 1 * args.country in a
             claims = 1 * args.country in c
@@ -69,10 +62,14 @@ def calculate_counts(args, year):
             counted[CLAIMS] += claims
             counted[DESCRIPTIONS] += description
             counted[PDF] += pdf
-            if title and abstract and claims and description:
-                # we don't want the PDF if we have all the text
-                pass
-            elif pdf:
+            incomplete[TITLES] += 1 * 'null' in t
+            incomplete[ABSTRACTS] += 1 * 'null' in a
+            incomplete[CLAIMS] += 1 * 'null' in c
+            incomplete[DESCRIPTIONS] += 1 * 'null' in d
+            incomplete[PDF] += 1 * 'null' in n
+            if 'null' in ' '.join([t, a, c, d, n]):
+                incomplete[ENTRIES] += 1
+            elif len(t) * len(a) * len(c) * len(d) == 0 and int(n) > 0:
                 if args.limit is None or int(n) <= args.limit:
                     matched[PDF] += 1
                     matched[TITLES] += title
