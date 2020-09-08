@@ -67,10 +67,11 @@ def calculate_counts(args, year):
             incomplete[CLAIMS] += 1 * 'null' in c
             incomplete[DESCRIPTIONS] += 1 * 'null' in d
             incomplete[PDF] += 1 * 'null' in n
+            pages = 0 if 'null' in n else int(n)
             if 'null' in ' '.join([t, a, c, d, n]):
                 incomplete[ENTRIES] += 1
-            elif len(t) * len(a) * len(c) * len(d) == 0 and int(n) > 0:
-                if args.limit is None or int(n) <= args.limit:
+            elif len(t) * len(a) * len(c) * len(d) == 0 and pages > 0:
+                if args.limit is None or pages <= args.limit:
                     matched[PDF] += 1
                     matched[TITLES] += title
                     matched[ABSTRACTS] += abstract
@@ -102,18 +103,26 @@ def check_year(value):
         raise argparse.ArgumentTypeError("%s is out of range" % value)
     return ivalue
 
+def check_limit(value):
+    message = "must be a positive integer, or zero for no limit"
+    try:
+        ivalue = int(value)
+        if ivalue < 0:
+            raise argparse.ArgumentTypeError(message)
+        return None if ivalue == 0 else ivalue
+    except ValueError:
+        raise argparse.ArgumentTypeError(message)
+
 def main():
     limit = os.environ.get('PDF_PAGE_LIMIT', 25)
     infodir = os.environ.get('INFODIR', '/fs/loki0/data/pdfpatents')
-    tmpdir = os.environ.get('HOME', '') + '/tmp'
 
     parser = argparse.ArgumentParser(description='Get patent counts for a given country code and year range')
     parser.add_argument('country', nargs='?', help='Country code', type=check_country, default="HR")
     parser.add_argument('start', metavar='start-year', nargs='?', help='First year of patents to process', type=check_year)
     parser.add_argument('end', metavar='end-year', nargs='?', help='Last year of patents to process', type=check_year)
-    parser.add_argument('--limit', help='Maximum number of PDF pages we want', default=limit)
+    parser.add_argument('--limit', help='Maximum number of PDF pages we want', default=limit, type=check_limit)
     parser.add_argument('--infodir', help='Directory with info files', default=infodir)
-    parser.add_argument('--tmpdir', help='Directory for temporary files', default=tmpdir)
     args = parser.parse_args()
 
     # dynamic defaults for missing positional args
