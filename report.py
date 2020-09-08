@@ -114,20 +114,23 @@ def check_limit(value):
         raise argparse.ArgumentTypeError(message)
 
 def main():
+    startyear = 1994
+    endyear = datetime.datetime.now().year-1
     limit = os.environ.get('PDF_PAGE_LIMIT', 25)
     infodir = os.environ.get('INFODIR', '/fs/loki0/data/pdfpatents')
+    message = 'Print patent counts for the given country code. A single year, or both a start and end year (inclusive) can be given. If no years are specified, the range {}-{} will be used. Patents with too many PDF pages will be ignored. The page limit is configurable (default {}).'.format(startyear, endyear, limit)
 
-    parser = argparse.ArgumentParser(description='Get patent counts for a given country code and year range')
-    parser.add_argument('country', nargs='?', help='Country code', type=check_country, default="HR")
+    parser = argparse.ArgumentParser(description=message)
+    parser.add_argument('country', metavar='country-code', help='Country code', type=check_country)
     parser.add_argument('start', metavar='start-year', nargs='?', help='First year of patents to process', type=check_year)
     parser.add_argument('end', metavar='end-year', nargs='?', help='Last year of patents to process', type=check_year)
-    parser.add_argument('--limit', help='Maximum number of PDF pages we want', default=limit, type=check_limit)
+    parser.add_argument('--limit', help='Maximum number of PDF pages (default {})'.format(limit), default=limit, type=check_limit)
     parser.add_argument('--infodir', help='Directory with info files', default=infodir)
     args = parser.parse_args()
 
     # dynamic defaults for missing positional args
-    args.end = args.end or args.start or 2019
-    args.start = args.start or 1994
+    args.end = args.end or args.start or endyear
+    args.start = args.start or startyear
     print_counts(args)
 
 
