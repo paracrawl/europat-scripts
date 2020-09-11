@@ -353,7 +353,7 @@ public class OpsApiHelper {
                 delayMessage = String.format("Service unavailable: retry after %d minutes...", delay);
                 retry = true;
             } else if (HttpStatus.SC_INTERNAL_SERVER_ERROR == statusCode) {
-                int delay = 60;
+                int delay = 20;
                 msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
                 delayMessage = String.format("Internal server error: retry after %d minutes...", delay);
                 retry = true;
