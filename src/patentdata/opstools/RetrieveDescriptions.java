@@ -11,12 +11,7 @@ public class RetrieveDescriptions {
 
     public static boolean run(OpsApiHelper api, PatentResultWriter writer, List<PatentInfo> info) throws Exception {
         DescriptionProcessor p = new DescriptionProcessor(info);
-        if (api.callApi(p, p, writer)) {
-            info.clear();
-            info.addAll(p.getInfo());
-            return true;
-        }
-        return false;
+        return api.callApi(p, p, writer);
     }
 
     // -------------------------------------------------------------------------------

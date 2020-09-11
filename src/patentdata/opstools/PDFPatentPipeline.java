@@ -262,14 +262,14 @@ public class PDFPatentPipeline {
                 case STAGE_PDF:
                     success = DownloadPdfPatents.run(api, writer, info);
                     break;
+                case STAGE_REPORT:
+                    success = ReportPatentStats.run(writer, countryCode, year, info);
+                    break;
                 case STAGE_SAMPLE:
                     success = DownloadPdfPatents.downloadSample(api, writer, info, sampleSize);
                     break;
                 case STAGE_SEARCH:
                     success = FindPatentIds.run(api, writer, countryCode, year, info);
-                    break;
-                case STAGE_REPORT:
-                    success = ReportPatentStats.run(writer, countryCode, year, info);
                     break;
                 default:
                     throw new IllegalArgumentException("Unknown stage " + stage);
@@ -283,6 +283,9 @@ public class PDFPatentPipeline {
                 throw(e);
             } finally {
                 switch(stage) {
+                case STAGE_CLAIMS:
+                case STAGE_DESCRIPTION:
+                case STAGE_PDF:
                 case STAGE_REPORT:
                 case STAGE_SAMPLE:
                     // metadata unchanged, no need to update
