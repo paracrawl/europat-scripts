@@ -66,6 +66,13 @@ public class PatentResultWriter {
         checkpointDir = new File(workingDir, dirName);
     }
 
+    public PatentResultWriter getSampleWriter() {
+        // write sample results to a subdirectory of the main results
+        PatentResultWriter w = new PatentResultWriter(workingDir, new File(resultDir, "sample"), countryCode, year);
+        w.checkpointDir = this.checkpointDir;
+        return w;
+    }
+
     // -------------------------------------------------------------------------------
 
     /**

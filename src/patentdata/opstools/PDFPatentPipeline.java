@@ -24,9 +24,14 @@ import org.apache.logging.log4j.LogManager;
  * currently check which languages are available as text before making
  * this decision.
  *
+ * However, if a sample is requested, this will include PDFs where ALL
+ * the parts are available as text.
+ *
  * Author: Elaine Farrow
  */
 public class PDFPatentPipeline {
+
+    public static final int DEFAULT_SAMPLE_SIZE = 20;
 
     public static final String STAGE_ALL = "all";
     public static final String STAGE_BIBLIO = "biblio";
@@ -37,6 +42,7 @@ public class PDFPatentPipeline {
     public static final String STAGE_PDF = "pdf";
     public static final String STAGE_PREPDF = "prepdf";
     public static final String STAGE_REPORT = "report";
+    public static final String STAGE_SAMPLE = "sample";
     public static final String STAGE_SEARCH = "search";
 
     private static final Logger LOGGER = LogManager.getLogger();
@@ -47,9 +53,13 @@ public class PDFPatentPipeline {
     // use the same helper to manage all the API calls
     private final OpsApiHelper api;
 
-    public PDFPatentPipeline(String configFilePath) throws Exception {
+    // zero indicates we are not using sampling
+    private final int sampleSize;
+
+    public PDFPatentPipeline(String configFilePath, int sampleSize) throws Exception {
         config = new OpsConfigHelper(configFilePath);
         api = new OpsApiHelper(config);
+        this.sampleSize = sampleSize;
     }
 
     public static void main(String[] args) throws Exception {
@@ -68,9 +78,16 @@ public class PDFPatentPipeline {
         if (configFilePath != null) {
             LOGGER.warn(String.format("Using config file: %s", configFilePath));
         }
+        int sampleSize = DEFAULT_SAMPLE_SIZE;
+        index = Math.max(params.indexOf("-s"), params.indexOf("--sample"));
+        if (index >= 0) {
+            sampleSize = Integer.parseInt(params.remove(index+1));
+            params.remove(index);
+            LOGGER.warn(String.format("Using a sample size of %d", sampleSize));
+        }
         index = Math.max(params.indexOf("-t"), params.indexOf("--test"));
         if (index >= 0 || params.isEmpty()) {
-            new PDFPatentPipeline(configFilePath).runTests();
+            new PDFPatentPipeline(configFilePath, sampleSize).runTests();
             return;
         }
         String inputFilePath = null;
@@ -83,7 +100,7 @@ public class PDFPatentPipeline {
             LOGGER.warn(String.format("Reading input from file: %s", inputFilePath));
             warnExtraParams(params);
         }
-        PDFPatentPipeline p = new PDFPatentPipeline(configFilePath);
+        PDFPatentPipeline p = new PDFPatentPipeline(configFilePath, sampleSize);
         try {
             if (inputFilePath == null) {
                 runPipeline(p, params);
@@ -171,6 +188,7 @@ public class PDFPatentPipeline {
         buf.append("  fulltext      : identify patents with full text").append("\n");
         buf.append("  images        : identify patents with PDFs available").append("\n");
         buf.append("  prepdf        : identify PDFs to download").append("\n");
+        buf.append("  sample        : download sample PDFs").append("\n");
         buf.append("------------------------").append("\n");
         buf.append("Examples").append("\n");
         buf.append("------------------------").append("\n");
@@ -215,6 +233,9 @@ public class PDFPatentPipeline {
         PatentResultWriter writer = new PatentResultWriter(config.getWorkingDirName(), countryCode, year);
         // initialise values from the master copy
         List<PatentInfo> info = writer.readInfo();
+        if (stages.contains(STAGE_SAMPLE)) {
+            writer = writer.getSampleWriter();
+        }
         for (String stage : stages) {
             if (! STAGE_REPORT.equals(stage)) {
                 LOGGER.info("** Starting " + stage + " stage **");
@@ -241,6 +262,9 @@ public class PDFPatentPipeline {
                 case STAGE_PDF:
                     success = DownloadPdfPatents.run(api, writer, info);
                     break;
+                case STAGE_SAMPLE:
+                    success = DownloadPdfPatents.downloadSample(api, writer, info, sampleSize);
+                    break;
                 case STAGE_SEARCH:
                     success = FindPatentIds.run(api, writer, countryCode, year, info);
                     break;
@@ -258,9 +282,15 @@ public class PDFPatentPipeline {
                 LOGGER.error(stage + " stage failed", e);
                 throw(e);
             } finally {
-                if (! STAGE_REPORT.equals(stage)) {
+                switch(stage) {
+                case STAGE_REPORT:
+                case STAGE_SAMPLE:
+                    // metadata unchanged, no need to update
+                    break;
+                default:
                     // update the master copy after each stage, even in case of errors
                     writer.writeInfo(info);
+                    break;
                 }
             }
         }
@@ -277,6 +307,7 @@ public class PDFPatentPipeline {
             case STAGE_REPORT:
                 // don't add anything
                 break;
+            case STAGE_SAMPLE:
             case STAGE_SEARCH:
                 stages.add(stage);
                 break;

@@ -28,6 +28,11 @@ public class DownloadPdfPatents {
         return api.callApi(p, p, writer);
     }
 
+    public static boolean downloadSample(OpsApiHelper api, PatentResultWriter writer, List<PatentInfo> info, int sampleSize) throws Exception {
+        PdfDownloader p = new PdfDownloader(info, writer, sampleSize);
+        return api.callApi(p, p, writer);
+    }
+
     // -------------------------------------------------------------------------------
 
     private static class PdfDownloader
@@ -42,20 +47,35 @@ public class DownloadPdfPatents {
         private int pageId = 1;
 
         public PdfDownloader(List<PatentInfo> inputInfo, PatentResultWriter writer) throws Exception {
+            this(inputInfo, writer, 0);
+        }
+
+        public PdfDownloader(List<PatentInfo> inputInfo, PatentResultWriter writer, int sampleSize) throws Exception {
             super(inputInfo);
             this.writer = writer;
             // initialise the inputs
+            int count = 0;
             for (PatentInfo p : inputInfo) {
-                // if any pages are missing, download this patent again
-                if (shouldProcess(p) && ! writer.allPdfFilesExist(p)) {
+                if (shouldProcess(p, sampleSize > 0)) {
                     if (p.getNPages() > MAX_PAGES) {
                         LOGGER.debug("  skipping " + p.getDocdbId() + " - too many pages");
                         continue;
                     }
-                    docInfo.add(p);
+                    // if any pages are missing, download this patent again
+                    if (! writer.allPdfFilesExist(p)) {
+                        docInfo.add(p);
+                    }
+                    count++;
+                    if (sampleSize > 0 && count >= sampleSize) {
+                        LOGGER.debug("  sampling complete");
+                        break;
+                    }
                 } else {
                     LOGGER.debug("  skipping " + p.getDocdbId());
                 }
+            }
+            if (sampleSize > 0 && count < sampleSize) {
+                LOGGER.warn("  sample size not reached: found " + count);
             }
         }
 
@@ -120,6 +140,13 @@ public class DownloadPdfPatents {
             return docInfo.get(index);
         }
 
+        private static boolean shouldProcess(PatentInfo p, boolean sampling) {
+            if (sampling) {
+                return shouldProcessForSample(p);
+            }
+            return shouldProcess(p);
+        }
+
         private static boolean shouldProcess(PatentInfo p) {
             List<String> missing = new ArrayList<>();
             if (! p.checkedTitle()) {
@@ -142,6 +169,34 @@ public class DownloadPdfPatents {
                 throw new IllegalStateException(error);
             }
             if (p.hasTitle() && p.hasAbstract() && p.hasClaims() && p.hasDescription()) {
+                return false;
+            }
+            return p.hasImages();
+        }
+
+        private static boolean shouldProcessForSample(PatentInfo p) {
+            List<String> missing = new ArrayList<>();
+            if (! p.checkedTitle()) {
+                missing.add("title");
+            }
+            if (! p.checkedAbstract()) {
+                missing.add("abstract");
+            }
+            if (! p.checkedClaims()) {
+                missing.add("claims");
+            }
+            if (! p.checkedDescription()) {
+                missing.add("description");
+            }
+            if (! p.checkedImages()) {
+                missing.add("images");
+            }
+            if (! missing.isEmpty()) {
+                String error = String.format("Check for %s first (%s).", String.join(", ", missing), p.getDocdbId());
+                throw new IllegalStateException(error);
+            }
+            if (p.getLanguages().get(p.getCountry()) < 4) {
+                // skip if any part is not available as text in the main language
                 return false;
             }
             return p.hasImages();
