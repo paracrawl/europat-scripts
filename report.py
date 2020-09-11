@@ -13,6 +13,7 @@ ABSTRACTS = 'abstracts'
 CLAIMS = 'claims'
 DESCRIPTIONS = 'descriptions'
 PDF = 'PDFs'
+PAGES = 'pages'
 FILE_TYPES = OrderedDict()
 FILE_TYPES.update({TITLES : 'title'})
 FILE_TYPES.update({ABSTRACTS : 'abstract'})
@@ -28,14 +29,15 @@ def print_counts(args):
         counted, incomplete, matched, downloaded = result
         text = ', {} incomplete'.format(incomplete[ENTRIES]) if incomplete[ENTRIES] else ''
         print('{} {}: {} entries{}'.format(args.country, year, counted[ENTRIES], text))
-        matched_val = '?' if incomplete[PDF] else matched[PDF]
-        counted_val = '?' if incomplete[PDF] else counted[PDF]
-        print('{:>6} / {:<5} {} are wanted'.format(matched_val, counted_val, PDF))
+        for t in [PDF, PAGES]:
+            matched_val = '?' if incomplete[PDF] else matched[t]
+            counted_val = '?' if incomplete[PDF] else counted[t]
+            print('{:>6} / {:<5} {} are wanted'.format(matched_val, counted_val, t))
         for t in FILE_TYPES:
             matched_val = '?' if incomplete[t] or incomplete[PDF] else matched[t]
             counted_val = '?' if incomplete[t] else counted[t]
             print('{:>6} / {:<5} {} have wanted PDFs'.format(matched_val, counted_val, t))
-        for t in list(FILE_TYPES) + [PDF]:
+        for t in list(FILE_TYPES) + [PDF, PAGES]:
             print('{:>6} {} downloaded'.format(downloaded[t], t))
 
 def calculate_counts(args, year):
@@ -52,6 +54,7 @@ def calculate_counts(args, year):
         for line in file:
             counted[ENTRIES] += 1
             _, _, _, t, a, c, d, p, n = line.split('\t')
+            pages = 0 if 'null' in n else int(n)
             title = 1 * args.country in t
             abstract = 1 * args.country in a
             claims = 1 * args.country in c
@@ -62,25 +65,30 @@ def calculate_counts(args, year):
             counted[CLAIMS] += claims
             counted[DESCRIPTIONS] += description
             counted[PDF] += pdf
+            counted[PAGES] += pages
             incomplete[TITLES] += 1 * 'null' in t
             incomplete[ABSTRACTS] += 1 * 'null' in a
             incomplete[CLAIMS] += 1 * 'null' in c
             incomplete[DESCRIPTIONS] += 1 * 'null' in d
             incomplete[PDF] += 1 * 'null' in n
-            pages = 0 if 'null' in n else int(n)
             if 'null' in ' '.join([t, a, c, d, n]):
                 incomplete[ENTRIES] += 1
             elif len(t) * len(a) * len(c) * len(d) == 0 and pages > 0:
                 if args.limit is None or pages <= args.limit:
-                    matched[PDF] += 1
                     matched[TITLES] += title
                     matched[ABSTRACTS] += abstract
                     matched[CLAIMS] += claims
                     matched[DESCRIPTIONS] += description
+                    matched[PDF] += 1
+                    matched[PAGES] += pages
+                    # for i in range(pages):
+                    #     print('  {}-{}-{}.pdf'.format(p, n.strip(), i+1))
     # count downloaded entries in the main language
     downloaded = {l : count_lines('{}/{}-{}-{}.tab'.format(yeardir, args.country, session, k))
                      for l, k in FILE_TYPES.items()}
     downloaded[PDF] = len(glob.glob('{}/*-1.pdf'.format(yeardir)))
+    downloaded[PAGES] = len(glob.glob('{}/*.pdf'.format(yeardir)))
+    # print('  {}'.format('\n  '.join(glob.glob('{}/*.pdf'.format(yeardir)))))
     # return the results
     return counted, incomplete, matched, downloaded
 
