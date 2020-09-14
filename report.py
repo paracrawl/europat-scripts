@@ -2,10 +2,10 @@
 
 import argparse
 import datetime
-import glob
 import os
 
 from collections import Counter, OrderedDict
+from pathlib import Path
 
 ENTRIES = 'entries'
 TITLES = 'titles'
@@ -48,6 +48,11 @@ def calculate_counts(args, year):
     infofile = '{}/{}-info.txt'.format(yeardir, session)
     if not os.path.isdir(yeardir) or not os.path.isfile(infofile):
         return None
+    # find the downloaded PDF files for each patent
+    pdfs = Counter()
+    for filename in map(lambda x: x.name, Path(yeardir).glob('*.pdf')):
+        docid, _ = filename.replace('-', '.', 2).split('-', 1)
+        pdfs[docid] += 1
     # count all entries and filtered entries in the main language
     counted = Counter()
     matched = Counter()
@@ -57,7 +62,6 @@ def calculate_counts(args, year):
         for line in file:
             counted[ENTRIES] += 1
             docid, _, _, t, a, c, d, p, n = line.split('\t')
-            docid = docid.replace('.', '-')
             pages = 0 if 'null' in n else int(n)
             title = 1 * args.country in t
             abstract = 1 * args.country in a
@@ -78,7 +82,7 @@ def calculate_counts(args, year):
             if 'null' in ' '.join([t, a, c, d, n]):
                 incomplete[ENTRIES] += 1
             elif len(t) * len(a) * len(c) * len(d) == 0 and pages > 0:
-                downloaded_pages = len(glob.glob('{}/{}-{}-*.pdf'.format(yeardir, docid, pages)))
+                downloaded_pages = pdfs[docid]
                 if downloaded_pages == pages:
                     downloaded[PDF] += 1
                 downloaded[PAGES] += downloaded_pages
@@ -94,10 +98,9 @@ def calculate_counts(args, year):
                     if downloaded_pages == pages:
                         downloaded[PDF_MATCHED] += 1
                     downloaded[PAGES_MATCHED] += downloaded_pages
-    # count downloaded entries in the main language
+    # count downloaded text entries in the main language
     for t, f in FILE_TYPES.items():
         downloaded[t] = count_lines('{}/{}-{}-{}.tab'.format(yeardir, args.country, session, f))
-    # print('  {}'.format('\n  '.join(glob.glob('{}/*.pdf'.format(yeardir)))))
     # return the results
     return counted, incomplete, matched, downloaded
 
