@@ -14,6 +14,8 @@ CLAIMS = 'claims'
 DESCRIPTIONS = 'descriptions'
 PDF = 'PDFs'
 PAGES = 'pages'
+PDF_MATCHED = 'wanted PDFs'
+PAGES_MATCHED = 'wanted pages'
 FILE_TYPES = OrderedDict()
 FILE_TYPES.update({TITLES : 'title'})
 FILE_TYPES.update({ABSTRACTS : 'abstract'})
@@ -37,7 +39,7 @@ def print_counts(args):
             matched_val = '?' if incomplete[t] or incomplete[PDF] else matched[t]
             counted_val = '?' if incomplete[t] else counted[t]
             print('{:>6} / {:<5} {} have wanted PDFs'.format(matched_val, counted_val, t))
-        for t in list(FILE_TYPES) + [PDF, PAGES]:
+        for t in list(FILE_TYPES) + [PDF, PAGES, PDF_MATCHED, PAGES_MATCHED]:
             print('{:>6} {} downloaded'.format(downloaded[t], t))
 
 def calculate_counts(args, year):
@@ -50,10 +52,12 @@ def calculate_counts(args, year):
     counted = Counter()
     matched = Counter()
     incomplete = Counter()
+    downloaded = Counter()
     with open(infofile) as file:
         for line in file:
             counted[ENTRIES] += 1
-            _, _, _, t, a, c, d, p, n = line.split('\t')
+            docid, _, _, t, a, c, d, p, n = line.split('\t')
+            docid = docid.replace('.', '-')
             pages = 0 if 'null' in n else int(n)
             title = 1 * args.country in t
             abstract = 1 * args.country in a
@@ -74,6 +78,10 @@ def calculate_counts(args, year):
             if 'null' in ' '.join([t, a, c, d, n]):
                 incomplete[ENTRIES] += 1
             elif len(t) * len(a) * len(c) * len(d) == 0 and pages > 0:
+                downloaded_pages = len(glob.glob('{}/{}-{}-*.pdf'.format(yeardir, docid, pages)))
+                if downloaded_pages == pages:
+                    downloaded[PDF] += 1
+                downloaded[PAGES] += downloaded_pages
                 if args.limit is None or pages <= args.limit:
                     matched[TITLES] += title
                     matched[ABSTRACTS] += abstract
@@ -83,11 +91,12 @@ def calculate_counts(args, year):
                     matched[PAGES] += pages
                     # for i in range(pages):
                     #     print('  {}-{}-{}.pdf'.format(p, n.strip(), i+1))
+                    if downloaded_pages == pages:
+                        downloaded[PDF_MATCHED] += 1
+                    downloaded[PAGES_MATCHED] += downloaded_pages
     # count downloaded entries in the main language
-    downloaded = {l : count_lines('{}/{}-{}-{}.tab'.format(yeardir, args.country, session, k))
-                     for l, k in FILE_TYPES.items()}
-    downloaded[PDF] = len(glob.glob('{}/*-1.pdf'.format(yeardir)))
-    downloaded[PAGES] = len(glob.glob('{}/*.pdf'.format(yeardir)))
+    for t, f in FILE_TYPES.items():
+        downloaded[t] = count_lines('{}/{}-{}-{}.tab'.format(yeardir, args.country, session, f))
     # print('  {}'.format('\n  '.join(glob.glob('{}/*.pdf'.format(yeardir)))))
     # return the results
     return counted, incomplete, matched, downloaded
