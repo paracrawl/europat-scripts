@@ -92,7 +92,7 @@ public class OpsApiHelper {
     public static final String THROTTLE_RETRIEVAL = "retrieval";
     public static final String THROTTLE_SEARCH = "search";
 
-    public static final int MAX_INTERNAL_ERRORS = 5;
+    public static final int MAX_INTERNAL_ERRORS = 3;
 
     private static final Logger LOGGER = LogManager.getLogger();
     private static final Marker API_MARKER = MarkerManager.getMarker("OPS_API_CALL");
@@ -362,7 +362,7 @@ public class OpsApiHelper {
                     // act as though there are no results and move on
                     return p.processNoResults();
                 }
-                int delay = 20;
+                int delay = 2;
                 msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
                 delayMessage = String.format("Internal server error: retry after %d minutes...", delay);
                 retry = true;
