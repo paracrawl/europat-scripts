@@ -92,6 +92,8 @@ public class OpsApiHelper {
     public static final String THROTTLE_RETRIEVAL = "retrieval";
     public static final String THROTTLE_SEARCH = "search";
 
+    public static final int MAX_INTERNAL_ERRORS = 5;
+
     private static final Logger LOGGER = LogManager.getLogger();
     private static final Marker API_MARKER = MarkerManager.getMarker("OPS_API_CALL");
 
@@ -303,10 +305,12 @@ public class OpsApiHelper {
     }
 
     private boolean processResponse(CloseableHttpClient client, String urlString, OpsResultProcessor p, boolean renewCredentials) throws Exception {
+        boolean retry;
+        int internalServerErrors = 0;
+        do {
         if (renewCredentials) {
             renewCredentials(client);
         }
-        boolean retry;
         long msDelay = 0;
         String delayMessage = "";
         CloseableHttpResponse response = getUrlResponse(client, urlString);
@@ -353,6 +357,11 @@ public class OpsApiHelper {
                 delayMessage = String.format("Service unavailable: retry after %d minutes...", delay);
                 retry = true;
             } else if (HttpStatus.SC_INTERNAL_SERVER_ERROR == statusCode) {
+                internalServerErrors++;
+                if (internalServerErrors > MAX_INTERNAL_ERRORS) {
+                    // act as though there are no results and move on
+                    return p.processNoResults();
+                }
                 int delay = 20;
                 msDelay = TimeUnit.MILLISECONDS.convert(delay, TimeUnit.MINUTES);
                 delayMessage = String.format("Internal server error: retry after %d minutes...", delay);
@@ -410,9 +419,7 @@ public class OpsApiHelper {
                 }
             }
         }
-        if (retry) {
-            return processResponse(client, urlString, p, renewCredentials);
-        }
+        } while (retry);
         return false;
     }
 
