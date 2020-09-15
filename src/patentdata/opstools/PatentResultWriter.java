@@ -194,7 +194,6 @@ public class PatentResultWriter {
         String docId = p.getDocdbId();
         if (downloadedPdfs.containsKey(docId)) {
             List<String> patentPdfs = getPdfFileNames(p);
-            System.out.println(patentPdfs);
             patentPdfs.retainAll(downloadedPdfs.get(docId));
             return patentPdfs.size();
         }
