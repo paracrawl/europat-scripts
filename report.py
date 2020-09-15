@@ -94,7 +94,7 @@ def calculate_counts(args, year):
                     matched[PDF] += 1
                     matched[PAGES] += pages
                     # for i in range(pages):
-                    #     print('  {}-{}-{}.pdf'.format(p, n.strip(), i+1))
+                    #     print('  {}-{}-{}.pdf'.format(p, pages, i+1))
                     if downloaded_pages == pages:
                         downloaded[PDF_MATCHED] += 1
                     downloaded[PAGES_MATCHED] += downloaded_pages
