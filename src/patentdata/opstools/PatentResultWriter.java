@@ -5,12 +5,16 @@ import java.io.InputStream;
 import java.io.IOException;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import org.apache.commons.io.FileUtils;
@@ -172,30 +176,49 @@ public class PatentResultWriter {
     }
 
     /**
-     * Do all the PDF files for the given patent already exist?
+     * Have all the PDF files for the given patent already been downloaded?
      */
-    public boolean allPdfFilesExist(PatentInfo p) {
-        for (int i = 0; i < p.getNPages(); i++) {
-            File f = getPdfFile(p, i+1);
-            if (! f.exists()) {
-                return false;
-            }
+    public boolean allPdfFilesExist(PatentInfo p, Map<String, List<String>> downloadedPdfs) {
+        String docId = p.getDocdbId();
+        if (downloadedPdfs.containsKey(docId)) {
+            List<String> patentPdfs = getPdfFileNames(p);
+            return downloadedPdfs.get(docId).containsAll(patentPdfs);
         }
-        return true;
+        return false;
     }
 
     /**
-     * How many of the PDF files for the given patent are downloaded?
+     * How many of the PDF files for the given patent have been downloaded?
      */
-    public int countPdfFiles(PatentInfo p) {
-        int total = 0;
-        for (int i = 0; i < p.getNPages(); i++) {
-            File f = getPdfFile(p, i+1);
-            if (f.exists()) {
-                total++;
-            }
+    public int countPdfFiles(PatentInfo p, Map<String, List<String>> downloadedPdfs) {
+        String docId = p.getDocdbId();
+        if (downloadedPdfs.containsKey(docId)) {
+            List<String> patentPdfs = getPdfFileNames(p);
+            System.out.println(patentPdfs);
+            patentPdfs.retainAll(downloadedPdfs.get(docId));
+            return patentPdfs.size();
         }
-        return total;
+        return 0;
+    }
+
+    /**
+     * Get a list of the PDF files that have already been downloaded for each patent.
+     */
+    public Map<String, List<String>> findPdfFiles() {
+        Map<String, List<String>> result = new HashMap<>();
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(resultDir.toPath(), "*.pdf")) {
+            for (Path path: stream) {
+                String name = path.toFile().getName();
+                String docId = parseDocId(name.replaceFirst("-\\d+-\\d+\\.pdf$", ""));
+                if (! result.containsKey(docId)) {
+                    result.put(docId, new ArrayList<>());
+                }
+                result.get(docId).add(name);
+            }
+        } catch (Exception ex) {
+            LOGGER.warn("problem finding PDF files", ex);
+        }
+        return result;
     }
 
     // -------------------------------------------------------------------------------
@@ -221,11 +244,24 @@ public class PatentResultWriter {
     }
 
     private File getPdfFile(PatentInfo p, int pageId) {
+        String fileName = getPdfFileName(p, pageId);
+        return new File(resultDir, fileName);
+    }
+
+    private String getPdfFileName(PatentInfo p, int pageId) {
         StringBuilder buf = new StringBuilder();
         buf.append(formatDocId(p.getDocdbId()));
         buf.append("-").append(p.getNPages());
         buf.append("-").append(pageId).append(".pdf");
-        return new File(resultDir, buf.toString());
+        return buf.toString();
+    }
+
+    private List<String> getPdfFileNames(PatentInfo p) {
+        List<String> result = new ArrayList<>();
+        for (int i = 0; i < p.getNPages(); i++) {
+            result.add(getPdfFileName(p, i+1));
+        }
+        return result;
     }
 
     // -------------------------------------------------------------------------------

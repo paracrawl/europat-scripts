@@ -41,6 +41,7 @@ public class ReportPatentStats {
     private static final Marker REPORT_MARKER = MarkerManager.getMarker("REPORT");
 
     private static void printStats(PatentResultWriter writer, List<PatentInfo> info) {
+        Map<String, List<String>> downloadedPdfs = writer.findPdfFiles();
         Map<String, Integer> titles = new TreeMap<>();
         Map<String, Integer> abstracts = new TreeMap<>();
         Map<String, Integer> claims = new TreeMap<>();
@@ -98,7 +99,7 @@ public class ReportPatentStats {
                     LOGGER.trace(REPORT_MARKER, p.getDocdbId() + " all text available");
                 } else if (p.hasImages()) {
                     int nPages = p.getNPages();
-                    int nDownloadedPages = writer.countPdfFiles(p);
+                    int nDownloadedPages = writer.countPdfFiles(p, downloadedPdfs);
                     withUnreadPages++;
                     totalUnreadPages += nPages;
                     totalUnreadDownloadedPages += nDownloadedPages;

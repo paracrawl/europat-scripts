@@ -4,6 +4,7 @@ import java.io.InputStream;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -55,6 +56,7 @@ public class DownloadPdfPatents {
             this.writer = writer;
             // initialise the inputs
             int count = 0;
+            Map<String, List<String>> downloadedPdfs = writer.findPdfFiles();
             for (PatentInfo p : inputInfo) {
                 if (shouldProcess(p, sampleSize > 0)) {
                     if (p.getNPages() > MAX_PAGES) {
@@ -62,7 +64,7 @@ public class DownloadPdfPatents {
                         continue;
                     }
                     // if any pages are missing, download this patent again
-                    if (! writer.allPdfFilesExist(p)) {
+                    if (! writer.allPdfFilesExist(p, downloadedPdfs)) {
                         docInfo.add(p);
                     }
                     count++;
