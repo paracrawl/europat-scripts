@@ -130,7 +130,8 @@ public class DownloadPdfPatents {
 
         @Override
         public boolean processNoResults() throws Exception {
-            LOGGER.error(String.format("*** PDF page %s not found for %s", pageId, getDocInfo().getDocdbId()));
+            PatentInfo p = getDocInfo();
+            LOGGER.error(String.format("*** PDF page %s of %s not found for %s", pageId, p.getNPages(), p.getDocdbId()));
             // skip to next patent
             pageId = getPageCount();
             return true;
