@@ -176,6 +176,14 @@ public class PatentResultWriter {
     }
 
     /**
+     * Does the file relating to the given patent information and page
+     * number already exist?
+     */
+    public boolean pdfFileExists(PatentInfo p, int pageId) {
+        return getPdfFile(p, pageId).exists();
+    }
+
+    /**
      * Have all the PDF files for the given patent already been downloaded?
      */
     public boolean allPdfFilesExist(PatentInfo p, Map<String, List<String>> downloadedPdfs) {

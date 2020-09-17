@@ -12,10 +12,15 @@ import org.apache.logging.log4j.LogManager;
 /**
  * Tool for downloading PDFs of patents from the OPS API.
  *
- * PDF patents will NOT be downloaded if the title, abstract, claims,
- * and description are all available as text. This tool does not
- * currently check which languages are available as text before making
- * this decision.
+ * PDF patents will not normally be downloaded if the title, abstract,
+ * claims, and description are all available as text. This tool does
+ * not currently check which languages are available as text before
+ * making this decision.
+ *
+ * The downloadSample method allows a sample of PDF patents to be
+ * downloaded that do have all four parts available as text. The
+ * patents chosen are simply the first to be found. They are not
+ * selected at random.
  *
  * Author: Elaine Farrow
  */
@@ -79,6 +84,7 @@ public class DownloadPdfPatents {
             if (sampleSize > 0 && count < sampleSize) {
                 LOGGER.warn("  sample size not reached: found " + count);
             }
+            skipDownloadedPages();
         }
 
         @Override
@@ -125,15 +131,15 @@ public class DownloadPdfPatents {
             PatentInfo p = getDocInfo();
             writer.writePdfFile(p, pageId, inputStream);
             LOGGER.info(String.format("Saved page %d of %d for %s", pageId, p.getNPages(), p.getDocdbId()));
+            skipDownloadedPages();
             return true;
         }
 
         @Override
         public boolean processNoResults() throws Exception {
             PatentInfo p = getDocInfo();
-            LOGGER.error(String.format("*** PDF page %s of %s not found for %s", pageId, p.getNPages(), p.getDocdbId()));
-            // skip to next patent
-            pageId = getPageCount();
+            LOGGER.error(String.format("*** PDF page %d of %d not found for %s", pageId, p.getNPages(), p.getDocdbId()));
+            skipDownloadedPages();
             return true;
         }
 
@@ -143,6 +149,17 @@ public class DownloadPdfPatents {
 
         private PatentInfo getDocInfo() {
             return docInfo.get(index);
+        }
+
+        private void skipDownloadedPages() {
+            for (; index < docInfo.size(); pageId = 1, index++) {
+                for (; pageId < getPageCount(); pageId++) {
+                    // do we need to download the next page?
+                    if (! writer.pdfFileExists(getDocInfo(), pageId+1)) {
+                        return;
+                    }
+                }
+            }
         }
 
         private static boolean shouldProcess(PatentInfo p, boolean sampling) {
