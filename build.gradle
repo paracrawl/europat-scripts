@@ -11,7 +11,7 @@ plugins {
 }
 
 sourceSets {
-    main.java.srcDirs = ['src']
+    main.java.srcDirs = ['src/patentdata/opstools']
     main.resources.srcDirs = ['config']
 }
 
@@ -71,8 +71,7 @@ task fatJar(type: Jar) {
     }
     baseName = 'pdfpatents'
     from {
-        configurations.compile.collect { it.isDirectory() ? it : 
-zipTree(it) }
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
     }
     with jar
 }
