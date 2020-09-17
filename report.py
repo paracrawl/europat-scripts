@@ -22,25 +22,35 @@ FILE_TYPES.update({ABSTRACTS : 'abstract'})
 FILE_TYPES.update({CLAIMS : 'claim'})
 FILE_TYPES.update({DESCRIPTIONS : 'desc'})
 
-def print_counts(args):
+def compute_and_print_counts(args):
+    # aggregate entries across all years
+    totals = [Counter(), Counter(), Counter(), Counter()]
     for year in range(args.start, args.end+1):
         result = calculate_counts(args, year)
         if result is None:
             print('{}: no results'.format(year))
             continue
-        counted, incomplete, matched, downloaded = result
-        text = ', {} incomplete'.format(incomplete[ENTRIES]) if incomplete[ENTRIES] else ''
-        print('{} {}: {} entries{}'.format(args.country, year, counted[ENTRIES], text))
-        for t in [PDF, PAGES]:
-            matched_val = '?' if incomplete[PDF] else matched[t]
-            counted_val = '?' if incomplete[PDF] else counted[t]
-            print('{:>6} / {:<5} {} are wanted'.format(matched_val, counted_val, t))
-        for t in FILE_TYPES:
-            matched_val = '?' if incomplete[t] or incomplete[PDF] else matched[t]
-            counted_val = '?' if incomplete[t] else counted[t]
-            print('{:>6} / {:<5} {} have wanted PDFs'.format(matched_val, counted_val, t))
-        for t in list(FILE_TYPES) + [PDF, PAGES, PDF_MATCHED, PAGES_MATCHED]:
-            print('{:>6} {} downloaded'.format(downloaded[t], t))
+        print_counts(args, result, year)
+        totals = [x+y for (x, y) in zip(totals, result)]
+    if args.start != args.end:
+        print_counts(args, totals)
+
+def print_counts(args, result, year=None):
+    counted, incomplete, matched, downloaded = result
+    if year is None:
+        year = 'total'
+    text = ', {} incomplete'.format(incomplete[ENTRIES]) if incomplete[ENTRIES] else ''
+    print('{} {}: {} entries{}'.format(args.country, year, counted[ENTRIES], text))
+    for t in [PDF, PAGES]:
+        matched_val = '?' if incomplete[PDF] else matched[t]
+        counted_val = '?' if incomplete[PDF] else counted[t]
+        print('{:>6} / {:<5} {} are wanted'.format(matched_val, counted_val, t))
+    for t in FILE_TYPES:
+        matched_val = '?' if incomplete[t] or incomplete[PDF] else matched[t]
+        counted_val = '?' if incomplete[t] else counted[t]
+        print('{:>6} / {:<5} {} have wanted PDFs'.format(matched_val, counted_val, t))
+    for t in list(FILE_TYPES) + [PDF, PAGES, PDF_MATCHED, PAGES_MATCHED]:
+        print('{:>6} {} downloaded'.format(downloaded[t], t))
 
 def calculate_counts(args, year):
     session = '{}-{}'.format(args.country, year)
@@ -93,8 +103,6 @@ def calculate_counts(args, year):
                     matched[DESCRIPTIONS] += description
                     matched[PDF] += 1
                     matched[PAGES] += pages
-                    # for i in range(pages):
-                    #     print('  {}-{}-{}.pdf'.format(p, pages, i+1))
                     if downloaded_pages == pages:
                         downloaded[PDF_MATCHED] += 1
                     downloaded[PAGES_MATCHED] += downloaded_pages
@@ -151,7 +159,7 @@ def main():
     # dynamic defaults for missing positional args
     args.end = args.end or args.start or endyear
     args.start = args.start or startyear
-    print_counts(args)
+    compute_and_print_counts(args)
 
 
 if __name__ == "__main__":
