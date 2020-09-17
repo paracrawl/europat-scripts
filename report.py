@@ -12,10 +12,10 @@ TITLES = 'titles'
 ABSTRACTS = 'abstracts'
 CLAIMS = 'claims'
 DESCRIPTIONS = 'descriptions'
-PDF = 'PDFs'
+PDFS = 'PDFs'
 PAGES = 'pages'
-PDF_MATCHED = 'wanted PDFs'
-PAGES_MATCHED = 'wanted pages'
+PDFS_WANTED = 'wanted PDFs'
+PAGES_WANTED = 'wanted pages'
 FILE_TYPES = OrderedDict()
 FILE_TYPES.update({TITLES : 'title'})
 FILE_TYPES.update({ABSTRACTS : 'abstract'})
@@ -41,16 +41,26 @@ def print_counts(args, result, year=None):
         year = 'total'
     text = ', {} incomplete'.format(incomplete[ENTRIES]) if incomplete[ENTRIES] else ''
     print('{} {}: {} entries{}'.format(args.country, year, counted[ENTRIES], text))
-    for t in [PDF, PAGES]:
-        matched_val = '?' if incomplete[PDF] else matched[t]
-        counted_val = '?' if incomplete[PDF] else counted[t]
-        print('{:>6} / {:<5} {} are wanted'.format(matched_val, counted_val, t))
+    limit = ' ({} page limit)'.format(args.limit) if args.limit else ''
+    for t in [PDFS, PAGES]:
+        matched_val = '?' if incomplete[PDFS] else matched[t]
+        counted_val = '?' if incomplete[PDFS] else counted[t]
+        print('{:>6} / {:<5} {} are wanted{}'.format(matched_val, counted_val, t, limit))
+        limit = ''
     for t in FILE_TYPES:
-        matched_val = '?' if incomplete[t] or incomplete[PDF] else matched[t]
+        matched_val = '?' if incomplete[t] or incomplete[PDFS] else matched[t]
         counted_val = '?' if incomplete[t] else counted[t]
         print('{:>6} / {:<5} {} have wanted PDFs'.format(matched_val, counted_val, t))
-    for t in list(FILE_TYPES) + [PDF, PAGES, PDF_MATCHED, PAGES_MATCHED]:
+    for t in FILE_TYPES:
         print('{:>6} {} downloaded'.format(downloaded[t], t))
+    if incomplete[PDFS]:
+        for t in [PDFS, PAGES]:
+            print('{:>6} {} downloaded'.format(downloaded[t], t))
+    else:
+        for (w, t) in [(PDFS_WANTED, PDFS), (PAGES_WANTED, PAGES)]:
+            print('{:>6} / {:<5} downloaded {} are wanted'.format(downloaded[w], downloaded[t], t))
+        for t in [PDFS_WANTED, PAGES_WANTED]:
+            print('{:>6} {} still to download'.format(matched[t] - downloaded[t], t))
 
 def calculate_counts(args, year):
     session = '{}-{}'.format(args.country, year)
@@ -82,30 +92,32 @@ def calculate_counts(args, year):
             counted[ABSTRACTS] += abstract
             counted[CLAIMS] += claims
             counted[DESCRIPTIONS] += description
-            counted[PDF] += pdf
+            counted[PDFS] += pdf
             counted[PAGES] += pages
             incomplete[TITLES] += 1 * 'null' in t
             incomplete[ABSTRACTS] += 1 * 'null' in a
             incomplete[CLAIMS] += 1 * 'null' in c
             incomplete[DESCRIPTIONS] += 1 * 'null' in d
-            incomplete[PDF] += 1 * 'null' in n
+            incomplete[PDFS] += 1 * 'null' in n
             if 'null' in ' '.join([t, a, c, d, n]):
                 incomplete[ENTRIES] += 1
             elif len(t) * len(a) * len(c) * len(d) == 0 and pages > 0:
                 downloaded_pages = pdfs[docid]
                 if downloaded_pages == pages:
-                    downloaded[PDF] += 1
+                    downloaded[PDFS] += 1
                 downloaded[PAGES] += downloaded_pages
                 if args.limit is None or pages <= args.limit:
                     matched[TITLES] += title
                     matched[ABSTRACTS] += abstract
                     matched[CLAIMS] += claims
                     matched[DESCRIPTIONS] += description
-                    matched[PDF] += 1
+                    matched[PDFS] += 1
                     matched[PAGES] += pages
                     if downloaded_pages == pages:
-                        downloaded[PDF_MATCHED] += 1
-                    downloaded[PAGES_MATCHED] += downloaded_pages
+                        downloaded[PDFS_WANTED] += 1
+                    downloaded[PAGES_WANTED] += downloaded_pages
+    matched[PDFS_WANTED] = matched[PDFS]
+    matched[PAGES_WANTED] = matched[PAGES]
     # count downloaded text entries in the main language
     for t, f in FILE_TYPES.items():
         downloaded[t] = count_lines('{}/{}-{}-{}.tab'.format(yeardir, args.country, session, f))
