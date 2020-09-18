@@ -18,6 +18,7 @@ import java.util.TreeMap;
 public class PatentInfo {
 
     public static final String DOCDB_SEPARATOR_PATTERN = "\\.";
+    public static final String VALUE_SEPARATOR_PATTERN = "-";
     private static final String ID_KEY = "ID";
     private static final String FAMILY_KEY = "FAMILY";
     private static final String DATE_KEY = "DATE";
@@ -230,12 +231,12 @@ public class PatentInfo {
     }
 
     private static String combineValues(List<String> values) {
-        return String.join("-", values);
+        return String.join(VALUE_SEPARATOR_PATTERN, values);
     }
 
     private static List<String> splitValues(String values) {
         return values == null || values.length() == 0
             ? Collections.emptyList()
-            : Arrays.asList(values.split("-"));
+            : Arrays.asList(values.split(VALUE_SEPARATOR_PATTERN));
     }
 }
