@@ -23,6 +23,6 @@ do
     echo "${COUNTRY}" "${YEAR}" "${COMMAND}" >> "${SCRIPT}"
 done
 
-nice -n10 java -jar build/libs/pdfpatents.jar -f "${SCRIPT}" "$@"
+nice -n10 java -jar build/libs/pdfpatent.jar -f "${SCRIPT}" "$@"
 
 rm "${SCRIPT}"

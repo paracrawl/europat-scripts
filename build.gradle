@@ -3,9 +3,11 @@
  */
 
 plugins {
-    // Add support for building a CLI Java application
-    id 'application'
+    // Add support for building Java
+    id 'java-library'
 }
+
+defaultTasks 'clean', 'build'
 
 sourceSets {
     main.java.srcDirs = ['src/patentdata/opstools']
@@ -20,22 +22,16 @@ repositories {
 
 dependencies {
     // https://mvnrepository.com/artifact/commons-io/commons-io
-    implementation group: 'commons-io', name: 'commons-io', version: '2.7'
+    implementation 'commons-io:commons-io:2.7'
 
     // https://mvnrepository.com/artifact/org.apache.httpcomponents/httpclient
-    implementation group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5.12'
-
-    // https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-api
-    implementation group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.13.3'
+    implementation 'org.apache.httpcomponents:httpclient:4.5.12'
 
     // https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-core
-    implementation group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.13.3'
+    implementation 'org.apache.logging.log4j:log4j-core:2.13.3'
   
     // https://mvnrepository.com/artifact/org.json/json
-    implementation group: 'org.json', name: 'json', version: '20200518'
-
-    // Use JUnit test framework
-    testImplementation 'junit:junit:4.12'
+    implementation 'org.json:json:20200518'
 }
 
 tasks.withType(JavaCompile) {
@@ -43,19 +39,30 @@ tasks.withType(JavaCompile) {
     options.deprecation = true
 }
 
-application {
-    // Define the main class for the application
-    mainClassName = 'patentdata.opstools.PDFPatentPipeline'
+task copyJarsToLib (type: Copy) {
+    def toDir = 'build/libs/third-party'
+    from configurations.runtimeClasspath
+    into toDir
 }
 
-defaultTasks 'clean', 'fatJar'
+jar {
+    dependsOn copyJarsToLib
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+    manifest {
+        attributes(
+        'Implementation-Title': project.name,
+        'Main-Class': 'patentdata.opstools.PDFPatentPipeline',
+        'Class-Path': '. third-party/' + configurations.runtimeClasspath.collect { it.getName() }.join(' third-party/')
+        )
+    }
+}
 
 task fatJar(type: Jar) {
-    duplicatesStrategy = DuplicatesStrategy.WARN
+    duplicatesStrategy = DuplicatesStrategy.FAIL
     manifest {
         attributes 'Main-Class': 'patentdata.opstools.PDFPatentPipeline'
     }
-    archiveBaseName = 'pdfpatents'
+    archiveClassifier = 'all'
     from {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
