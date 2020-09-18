@@ -305,7 +305,11 @@ public class PatentResultWriter {
     }
 
     private static List<String> readLines(File file) throws Exception {
-        return FileUtils.readLines(file, StandardCharsets.UTF_8);
+        List<String> result = new ArrayList<>();
+        if (file.exists()) {
+            result.addAll(FileUtils.readLines(file, StandardCharsets.UTF_8));
+        }
+        return result;
     }
 
     private static StringBuilder formatPatentContent(StringBuilder buf, PatentContent value, String fileType) {
