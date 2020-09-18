@@ -48,6 +48,7 @@ public class DownloadPdfPatents {
         private static final Logger LOGGER = LogManager.getLogger();
 
         private final List<PatentInfo> docInfo = new ArrayList<>();
+        private final List<String> missingPdfs = new ArrayList<>();
         private final PatentResultWriter writer;
         private int index = -1;
         private int pageId = 1;
@@ -84,7 +85,6 @@ public class DownloadPdfPatents {
             if (sampleSize > 0 && count < sampleSize) {
                 LOGGER.warn("  sample size not reached: found " + count);
             }
-            skipDownloadedPages();
         }
 
         @Override
@@ -118,12 +118,13 @@ public class DownloadPdfPatents {
 
         @Override
         public void writeCheckpointResults(PatentResultWriter writer) throws Exception {
-            // nothing to do
+            writer.writeIds(missingPdfs, PatentResultWriter.MISSING_PDF_FILE);
         }
 
         @Override
         public void readCheckpointResults(PatentResultWriter writer) throws Exception {
-            // nothing to do
+            missingPdfs.addAll(writer.readIds(PatentResultWriter.MISSING_PDF_FILE));
+            skipDownloadedPages();
         }
 
         @Override
@@ -139,6 +140,7 @@ public class DownloadPdfPatents {
         public boolean processNoResults() throws Exception {
             PatentInfo p = getDocInfo();
             LOGGER.error(String.format("*** PDF page %d of %d not found for %s", pageId, p.getNPages(), p.getDocdbId()));
+            missingPdfs.add(getPageInfoString(p.getDocdbId(), pageId));
             skipDownloadedPages();
             return true;
         }
@@ -154,12 +156,22 @@ public class DownloadPdfPatents {
         private void skipDownloadedPages() {
             for (; index < docInfo.size(); pageId = 1, index++) {
                 for (; pageId < getPageCount(); pageId++) {
-                    // do we need to download the next page?
-                    if (! writer.pdfFileExists(getDocInfo(), pageId+1)) {
+                    PatentInfo p = getDocInfo();
+                    int nextPageId = pageId + 1;
+                    if (missingPdfs.contains(getPageInfoString(p.getDocdbId(), nextPageId))) {
+                        // this one doesn't work
+                    } else if (! writer.pdfFileExists(p, nextPageId)) {
+                        // found one we need
                         return;
                     }
                 }
             }
+        }
+
+        private static String getPageInfoString(String docId, int pageId) {
+            StringBuilder buf = new StringBuilder();
+            buf.append("patent ").append(docId).append(" page ").append(pageId);
+            return buf.toString();
         }
 
         private static boolean shouldProcess(PatentInfo p, boolean sampling) {

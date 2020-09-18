@@ -37,6 +37,7 @@ public class PatentResultWriter {
     public static final String DESCRIPTION_FILE = "desc";
     public static final String IMAGE_FILE = "image";
     public static final String INFO_FILE = "info";
+    public static final String MISSING_PDF_FILE = "missing-pdfs";
     public static final String TITLE_FILE = "title";
 
     private static final Logger LOGGER = LogManager.getLogger();
@@ -106,6 +107,14 @@ public class PatentResultWriter {
      */
     public void writeIds(List<String> lines) throws Exception {
         writeLines(getIdsFile(), lines);
+    }
+
+    /**
+     * Read lines from a file in a standard location based on the
+     * given file type.
+     */
+    public List<String> readIds(String fileType) throws Exception {
+        return readLines(getIdsFile(fileType));
     }
 
     /**
