@@ -115,6 +115,10 @@ def calculate_counts(args, year):
                     matched[PAGES] += pages
                     if downloaded_pages == pages:
                         downloaded[PDFS_WANTED] += 1
+                    elif args.verbose:
+                        missing = pages - downloaded_pages
+                        if missing > 0:
+                            print('{} missing for {}'.format(missing, docid))
                     downloaded[PAGES_WANTED] += downloaded_pages
     matched[PDFS_WANTED] = matched[PDFS]
     matched[PAGES_WANTED] = matched[PAGES]
@@ -166,6 +170,7 @@ def main():
     parser.add_argument('end', metavar='end-year', nargs='?', help='Last year of patents to process', type=check_year)
     parser.add_argument('--limit', help='Maximum number of PDF pages (default {})'.format(limit), default=limit, type=check_limit)
     parser.add_argument('--infodir', help='Directory with info files', default=infodir)
+    parser.add_argument('-v', '--verbose', help="Verbose output", action="store_true")
     args = parser.parse_args()
 
     # dynamic defaults for missing positional args
