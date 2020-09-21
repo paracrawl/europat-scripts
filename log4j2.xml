@@ -3,6 +3,7 @@
   <Properties>
     <Property name="defaultLogDir">/tmp/opslogs/logs</Property>
     <Property name="defaultPatternLayout">%d{yyyyMMdd HH:mm:ss.SSS}\t\t%msg%n</Property>
+    <Property name="briefPatternLayout">%d{HH:mm:ss.SSS}\t\t%msg%n</Property>
   </Properties>
   <Appenders>
     <Console name="Console" target="SYSTEM_ERR">
@@ -14,7 +15,7 @@
       <ThresholdFilter level="ERROR" onMatch="ACCEPT" onMismatch="DENY"/>
     </Console>
     <RollingFile name="RollingLogFile" filePattern="${defaultLogDir}/%d{yyyyMMddHH}.log">
-      <PatternLayout pattern="${defaultPatternLayout}%ex{0}}"/>
+      <PatternLayout pattern="${defaultPatternLayout}%ex{0}"/>
       <Policies>
         <TimeBasedTriggeringPolicy/>
       </Policies>
@@ -26,7 +27,7 @@
       </Policies>
     </RollingFile>
     <RollingFile name="RollingApiFile" filePattern="${defaultLogDir}/api_%d{yyyyMMddHH}.log">
-      <PatternLayout pattern="%d{HH:mm:ss.SSS}\t\t%msg%n"/>
+      <PatternLayout pattern="${briefPatternLayout}"/>
       <MarkerFilter marker="OPS_API_CALL" onMatch="ACCEPT" onMismatch="DENY"/>
       <Policies>
         <TimeBasedTriggeringPolicy/>
