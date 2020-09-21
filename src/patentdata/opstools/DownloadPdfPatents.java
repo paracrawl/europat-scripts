@@ -136,7 +136,7 @@ public class DownloadPdfPatents {
         @Override
         public boolean processNoResults() throws Exception {
             PatentInfo p = getDocInfo();
-            missingPdfs.add(getPageInfoString(p.getDocdbId(), pageId));
+            missingPdfs.add(getPageInfoString(p, pageId));
             LOGGER.error(String.format("*** PDF page %d of %d not found for %s", pageId, p.getNPages(), p.getDocdbId()));
             skipDownloadedPages();
             return true;
@@ -155,14 +155,26 @@ public class DownloadPdfPatents {
                 PatentInfo p = getDocInfo();
                 for (; pageId < getPageCount(); pageId++) {
                     int nextPageId = pageId + 1;
-                    if (missingPdfs.contains(getPageInfoString(p.getDocdbId(), nextPageId))) {
+                    if (missingPdfs.contains(getPageInfoString(p, nextPageId))) {
                         // this one is unavailable
+                    } else if (missingPdfs.remove(getPageInfoString(p.getDocdbId(), nextPageId))) {
+                        // this one is unavailable - rewrite entry in new format
+                        missingPdfs.add(getPageInfoString(p, nextPageId));
                     } else if (! writer.pdfFileExists(p, nextPageId)) {
                         // found one we need
                         return;
                     }
                 }
             }
+        }
+
+        private static String getPageInfoString(PatentInfo p, int pageId) {
+            StringBuilder buf = new StringBuilder();
+            buf.append(p.getDocdbId());
+            buf.append(" page ").append(pageId);
+            buf.append(" of ").append(p.getNPages());
+            buf.append(" is unavailable");
+            return buf.toString();
         }
 
         private static String getPageInfoString(String docId, int pageId) {
