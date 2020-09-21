@@ -50,8 +50,8 @@ public class DownloadPdfPatents {
         private final List<PatentInfo> docInfo = new ArrayList<>();
         private final List<String> missingPdfs = new ArrayList<>();
         private final PatentResultWriter writer;
-        private int index = -1;
-        private int pageId = 1;
+        private int index = 0;
+        private int pageId = 0;
 
         public PdfDownloader(List<PatentInfo> inputInfo, PatentResultWriter writer) throws Exception {
             this(inputInfo, writer, 0);
@@ -146,7 +146,7 @@ public class DownloadPdfPatents {
         }
 
         private int getPageCount() {
-            return (index >= 0 && index < docInfo.size()) ? getDocInfo().getNPages() : 0;
+            return index < docInfo.size() ? getDocInfo().getNPages() : 0;
         }
 
         private PatentInfo getDocInfo() {
