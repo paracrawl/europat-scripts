@@ -69,7 +69,7 @@ public class DownloadPdfPatents {
                         LOGGER.debug("  skipping " + p.getDocdbId() + " - too many pages");
                         continue;
                     }
-                    // if any pages are missing, download this patent again
+                    // if any pages are missing, add this patent to the list
                     if (! writer.allPdfFilesExist(p, downloadedPdfs)) {
                         docInfo.add(p);
                     }
@@ -94,16 +94,13 @@ public class DownloadPdfPatents {
 
         @Override
         public boolean hasNext() {
-            return pageId < getPageCount() || (index + 1) < docInfo.size();
+            return pageId < getPageCount();
         }
 
         @Override
         public String getNextQuery() {
             if (pageId < getPageCount()) {
                 pageId++;
-            } else {
-                pageId = 1;
-                index++;
             }
             StringBuilder buf = new StringBuilder();
             buf.append(getDocInfo().getImages()).append(".pdf");
@@ -139,8 +136,8 @@ public class DownloadPdfPatents {
         @Override
         public boolean processNoResults() throws Exception {
             PatentInfo p = getDocInfo();
-            LOGGER.error(String.format("*** PDF page %d of %d not found for %s", pageId, p.getNPages(), p.getDocdbId()));
             missingPdfs.add(getPageInfoString(p.getDocdbId(), pageId));
+            LOGGER.error(String.format("*** PDF page %d of %d not found for %s", pageId, p.getNPages(), p.getDocdbId()));
             skipDownloadedPages();
             return true;
         }
