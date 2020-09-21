@@ -154,12 +154,12 @@ public class DownloadPdfPatents {
         }
 
         private void skipDownloadedPages() {
-            for (; index < docInfo.size(); pageId = 1, index++) {
+            for (; index < docInfo.size(); pageId = 0, index++) {
+                PatentInfo p = getDocInfo();
                 for (; pageId < getPageCount(); pageId++) {
-                    PatentInfo p = getDocInfo();
                     int nextPageId = pageId + 1;
                     if (missingPdfs.contains(getPageInfoString(p.getDocdbId(), nextPageId))) {
-                        // this one doesn't work
+                        // this one is unavailable
                     } else if (! writer.pdfFileExists(p, nextPageId)) {
                         // found one we need
                         return;
