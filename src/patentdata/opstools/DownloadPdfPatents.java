@@ -157,9 +157,11 @@ public class DownloadPdfPatents {
                     int nextPageId = pageId + 1;
                     if (missingPdfs.contains(getPageInfoString(p, nextPageId))) {
                         // this one is unavailable
+                        LOGGER.trace(String.format("  skipping page %d of %d for %s (unavailable)", nextPageId, p.getNPages(), p.getDocdbId()));
                     } else if (missingPdfs.remove(getPageInfoString(p.getDocdbId(), nextPageId))) {
                         // this one is unavailable - rewrite entry in new format
                         missingPdfs.add(getPageInfoString(p, nextPageId));
+                        LOGGER.trace(String.format("  Skipping page %d of %d for %s (unavailable)", nextPageId, p.getNPages(), p.getDocdbId()));
                     } else if (! writer.pdfFileExists(p, nextPageId)) {
                         // found one we need
                         return;
