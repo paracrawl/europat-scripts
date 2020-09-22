@@ -18,6 +18,8 @@ COUNTED = 'counted'
 MATCHED = 'matched'
 WANTED = 'wanted'
 DOWNLOADED = 'downloaded'
+INCOMPLETE = 'incomplete'
+UNAVAILABLE = 'unavailable'
 FILE_TYPES = OrderedDict()
 FILE_TYPES.update({TITLES : 'title'})
 FILE_TYPES.update({ABSTRACTS : 'abstract'})
@@ -67,8 +69,15 @@ def print_counts(args, result, year=None):
             counts = pdf_counts[t]
             print('{:>6} / {:<5} downloaded {} are wanted'.format(counts[WANTED], counts[DOWNLOADED], t))
         for t in [PDFS, PAGES]:
+            for r in [INCOMPLETE, UNAVAILABLE]:
+                counts = pdf_counts[t]
+                missing_val = counts[r]
+                if missing_val > 0:
+                    print('{:>6} / {:<5} wanted {} are {}'.format(missing_val, counts[MATCHED], t, r))
+        for t in [PDFS, PAGES]:
             counts = pdf_counts[t]
-            print('{:>6} wanted {} still to download'.format(counts[MATCHED] - counts[WANTED], t))
+            remaining_val = counts[MATCHED] - counts[WANTED] - counts[INCOMPLETE] - counts[UNAVAILABLE]
+            print('{:>6} wanted {} still to download'.format(remaining_val, t))
 
 def calculate_counts(args, year):
     session = '{}-{}'.format(args.country, year)
@@ -81,6 +90,8 @@ def calculate_counts(args, year):
     for filename in map(lambda x: x.name, Path(yeardir).glob('*.pdf')):
         docid, _ = filename.replace('-', '.', 2).split('-', 1)
         downloaded_pages[docid] += 1
+    # find the unavailable PDF files for each patent
+    unavailable_pages = find_unavailable_pdfs('{}/ids-{}-missing-pdfs.txt'.format(yeardir, session))
     # count all entries and filtered entries in the main language
     counted = Counter()
     matched = Counter()
@@ -130,6 +141,10 @@ def calculate_counts(args, year):
                         if missing > 0:
                             print('{} missing for {}'.format(missing, docid))
                     pages[WANTED] += patent_page_count
+                    unavailable_page_count = unavailable_pages[docid]
+                    if unavailable_page_count > 0:
+                        pdfs[INCOMPLETE] += 1
+                    pages[UNAVAILABLE] += unavailable_page_count
     # count downloaded text entries in the main language
     for t, f in FILE_TYPES.items():
         downloaded[t] = count_lines('{}/{}-{}-{}.tab'.format(yeardir, args.country, session, f))
@@ -143,6 +158,15 @@ def count_lines(filename):
             for line in file:
                 count += 1
     return count
+
+def find_unavailable_pdfs(filename):
+    result = Counter()
+    if os.path.isfile(filename):
+        with open(filename) as file:
+            for line in file:
+                docid = line.strip().split()[0]
+                result[docid] += 1
+    return result
 
 def check_country(value):
     if len(value) == 2 and value.isalpha():
