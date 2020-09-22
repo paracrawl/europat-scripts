@@ -110,12 +110,12 @@ public class DownloadPdfPatents {
 
         @Override
         public void writeResults(PatentResultWriter writer) throws Exception {
-            // nothing to do
+            writer.writeIds(missingPdfs, PatentResultWriter.MISSING_PDF_FILE);
         }
 
         @Override
         public void writeCheckpointResults(PatentResultWriter writer) throws Exception {
-            writer.writeIds(missingPdfs, PatentResultWriter.MISSING_PDF_FILE);
+            writeResults(writer);
         }
 
         @Override
