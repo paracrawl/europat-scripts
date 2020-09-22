@@ -39,21 +39,22 @@ def print_counts(args, result, year=None):
     counted, incomplete, matched, downloaded = result
     if year is None:
         year = 'total'
+    search_incomplete = incomplete[PDFS] > 0
     text = ', {} incomplete'.format(incomplete[ENTRIES]) if incomplete[ENTRIES] else ''
     print('{} {}: {} entries{}'.format(args.country, year, counted[ENTRIES], text))
     limit = ' ({} page limit)'.format(args.limit) if args.limit else ''
     for t in [PDFS, PAGES]:
-        matched_val = '?' if incomplete[PDFS] else matched[t]
-        counted_val = '?' if incomplete[PDFS] else counted[t]
+        matched_val = '?' if search_incomplete else matched[t]
+        counted_val = '?' if search_incomplete else counted[t]
         print('{:>6} / {:<5} {} are wanted{}'.format(matched_val, counted_val, t, limit))
         limit = ''
     for t in FILE_TYPES:
-        matched_val = '?' if incomplete[t] or incomplete[PDFS] else matched[t]
+        matched_val = '?' if search_incomplete or incomplete[t] else matched[t]
         counted_val = '?' if incomplete[t] else counted[t]
         print('{:>6} / {:<5} {} have wanted PDFs'.format(matched_val, counted_val, t))
     for t in FILE_TYPES:
         print('{:>6} {} downloaded'.format(downloaded[t], t))
-    if incomplete[PDFS]:
+    if search_incomplete:
         for t in [PDFS, PAGES]:
             print('{:>6} {} downloaded'.format(downloaded[t], t))
     else:
@@ -69,10 +70,10 @@ def calculate_counts(args, year):
     if not os.path.isdir(yeardir) or not os.path.isfile(infofile):
         return None
     # find the downloaded PDF files for each patent
-    pdfs = Counter()
+    downloaded_pages = Counter()
     for filename in map(lambda x: x.name, Path(yeardir).glob('*.pdf')):
         docid, _ = filename.replace('-', '.', 2).split('-', 1)
-        pdfs[docid] += 1
+        downloaded_pages[docid] += 1
     # count all entries and filtered entries in the main language
     counted = Counter()
     matched = Counter()
@@ -82,7 +83,7 @@ def calculate_counts(args, year):
         for line in file:
             counted[ENTRIES] += 1
             docid, _, _, t, a, c, d, p, n = line.split('\t')
-            pages = 0 if 'null' in n else int(n)
+            page_count = 0 if 'null' in n else int(n)
             title = 1 * args.country in t
             abstract = 1 * args.country in a
             claims = 1 * args.country in c
@@ -93,7 +94,7 @@ def calculate_counts(args, year):
             counted[CLAIMS] += claims
             counted[DESCRIPTIONS] += description
             counted[PDFS] += pdf
-            counted[PAGES] += pages
+            counted[PAGES] += page_count
             incomplete[TITLES] += 1 * 'null' in t
             incomplete[ABSTRACTS] += 1 * 'null' in a
             incomplete[CLAIMS] += 1 * 'null' in c
@@ -101,25 +102,25 @@ def calculate_counts(args, year):
             incomplete[PDFS] += 1 * 'null' in n
             if 'null' in ' '.join([t, a, c, d, n]):
                 incomplete[ENTRIES] += 1
-            elif len(t) * len(a) * len(c) * len(d) == 0 and pages > 0:
-                downloaded_pages = pdfs[docid]
-                if downloaded_pages == pages:
+            elif len(t) * len(a) * len(c) * len(d) == 0 and page_count > 0:
+                patent_page_count = downloaded_pages[docid]
+                if patent_page_count == page_count:
                     downloaded[PDFS] += 1
-                downloaded[PAGES] += downloaded_pages
-                if args.limit is None or pages <= args.limit:
+                downloaded[PAGES] += patent_page_count
+                if args.limit is None or page_count <= args.limit:
                     matched[TITLES] += title
                     matched[ABSTRACTS] += abstract
                     matched[CLAIMS] += claims
                     matched[DESCRIPTIONS] += description
                     matched[PDFS] += 1
-                    matched[PAGES] += pages
-                    if downloaded_pages == pages:
+                    matched[PAGES] += page_count
+                    if patent_page_count == page_count:
                         downloaded[PDFS_WANTED] += 1
                     elif args.verbose:
-                        missing = pages - downloaded_pages
+                        missing = page_count - patent_page_count
                         if missing > 0:
                             print('{} missing for {}'.format(missing, docid))
-                    downloaded[PAGES_WANTED] += downloaded_pages
+                    downloaded[PAGES_WANTED] += patent_page_count
     matched[PDFS_WANTED] = matched[PDFS]
     matched[PAGES_WANTED] = matched[PAGES]
     # count downloaded text entries in the main language
