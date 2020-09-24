@@ -37,6 +37,9 @@ public class PatentResultWriter {
     public static final String DESCRIPTION_FILE = "desc";
     public static final String IMAGE_FILE = "image";
     public static final String INFO_FILE = "info";
+    public static final String MISSING_CLAIM_FILE = "missing-claims";
+    public static final String MISSING_DESCRIPTION_FILE = "missing-descriptions";
+    public static final String MISSING_IMAGE_FILE = "missing-images";
     public static final String MISSING_PDF_FILE = "missing-pdfs";
     public static final String TITLE_FILE = "title";
 
@@ -123,6 +126,24 @@ public class PatentResultWriter {
      */
     public void writeIds(List<String> lines, String fileType) throws Exception {
         writeLines(getIdsFile(fileType), lines);
+    }
+
+    /**
+     * Read missing records from a file in a standard location based
+     * on the given file type.
+     */
+    public List<String> readMissingIds(String fileType) throws Exception {
+        return readLines(getMissingIdsFile(fileType));
+    }
+
+    /**
+     * Write missing records into a file in a standard location based
+     * on the given file type.
+     */
+    public void writeMissingIds(List<String> lines, String fileType) throws Exception {
+        if (! lines.isEmpty()) {
+            writeLines(getMissingIdsFile(fileType), lines);
+        }
     }
 
     /**
@@ -254,6 +275,10 @@ public class PatentResultWriter {
         return new File(resultDir, fileName);
     }
 
+    private File getMissingIdsFile(String fileType) {
+        return getIdsFile(getMissingFileType(fileType));
+    }
+
     private File getLanguageFile(String language, String fileType) {
         String fileName =  String.join("-", countryCode, language, year, fileType) + ".tab";
         return new File(resultDir, fileName);
@@ -281,6 +306,19 @@ public class PatentResultWriter {
     }
 
     // -------------------------------------------------------------------------------
+
+    private static String getMissingFileType(String fileType) {
+        switch (fileType) {
+        case CLAIM_FILE:
+            return MISSING_CLAIM_FILE;
+        case DESCRIPTION_FILE:
+            return MISSING_DESCRIPTION_FILE;
+        case IMAGE_FILE:
+            return MISSING_IMAGE_FILE;
+        default:
+            return fileType;
+        }
+    }
 
     private static List<PatentInfo> readInfoFile(File file) throws Exception {
         List<PatentInfo> info = new ArrayList<>();
