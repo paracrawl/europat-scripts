@@ -40,7 +40,6 @@ public class PatentResultWriter {
     public static final String MISSING_CLAIM_FILE = "missing-claims";
     public static final String MISSING_DESCRIPTION_FILE = "missing-descriptions";
     public static final String MISSING_IMAGE_FILE = "missing-images";
-    public static final String MISSING_PDF_FILE = "missing-pdfs";
     public static final String TITLE_FILE = "title";
 
     private static final Logger LOGGER = LogManager.getLogger();
