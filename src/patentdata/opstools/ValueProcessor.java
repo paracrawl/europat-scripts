@@ -26,6 +26,7 @@ abstract class ValueProcessor extends OpsResultProcessor
 
     private final List<String> docIds = new ArrayList<>();
     private final Map<String, List<PatentContent>> contentMap = new HashMap<>();
+    private final List<String> missingValues = new ArrayList<>();
     private final String query;
     private final String endPoint;
     private final String fileType;
@@ -74,6 +75,7 @@ abstract class ValueProcessor extends OpsResultProcessor
 
     @Override
     public void writeResults(PatentResultWriter writer) throws Exception {
+        writer.writeMissingIds(missingValues, fileType);
         for (String language : contentMap.keySet()) {
             writer.writeContent(contentMap.get(language), language, fileType);
         }
@@ -104,6 +106,9 @@ abstract class ValueProcessor extends OpsResultProcessor
                 contentMap.put(language, content);
             }
         }
+        missingValues.addAll(writer.readMissingIds(fileType));
+        // don't run again on the patents where we know the result in unavailable
+        docIds.removeAll(missingValues);
     }
 
     @Override
@@ -114,7 +119,9 @@ abstract class ValueProcessor extends OpsResultProcessor
 
     @Override
     public boolean processNoResults() throws Exception {
-        LOGGER.error(XML_MARKER, String.format("*** No %s result found for %s", endPoint, docIds.get(index)));
+        String docId = docIds.get(index);
+        missingValues.add(docId);
+        LOGGER.error(XML_MARKER, String.format("*** No %s result found for %s", endPoint, docId));
         return true;
     }
 
