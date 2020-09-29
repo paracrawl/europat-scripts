@@ -22,6 +22,7 @@ import org.w3c.dom.NodeList;
 abstract class ValueProcessor extends OpsResultProcessor
     implements OpsQueryGenerator {
 
+    private static final int CHECKPOINT_RATE = 20;
     private static final Logger LOGGER = LogManager.getLogger();
 
     private final List<String> docIds = new ArrayList<>();
@@ -83,7 +84,10 @@ abstract class ValueProcessor extends OpsResultProcessor
 
     @Override
     public void writeCheckpointResults(PatentResultWriter writer) throws Exception {
-        writeResults(writer);
+        // don't rewrite the checkpoint files every time
+        if ((docIds.size() - index - 1) % CHECKPOINT_RATE == 0) {
+            writeResults(writer);
+        }
     }
 
     @Override
@@ -107,7 +111,7 @@ abstract class ValueProcessor extends OpsResultProcessor
             }
         }
         missingValues.addAll(writer.readMissingIds(fileType));
-        // don't run again on the patents where we know the result in unavailable
+        // don't run again on the patents where we know the result is unavailable
         docIds.removeAll(missingValues);
     }
 
