@@ -159,11 +159,11 @@ public class PatentResultWriter {
      */
     public void writeContent(List<PatentContent> contents, String language, String fileType) throws Exception {
         if (! contents.isEmpty()) {
-            StringBuilder buf = new StringBuilder();
+            List<String> lines = new ArrayList<>();
             for (PatentContent content : contents) {
-                formatPatentContent(buf, content, fileType).append("\n");
+                lines.add(formatPatentContent(content, fileType));
             }
-            writeString(getLanguageFile(language, fileType), buf.toString());
+            writeLines(getLanguageFile(language, fileType), lines);
         }
     }
 
@@ -349,12 +349,13 @@ public class PatentResultWriter {
         return result;
     }
 
-    private static StringBuilder formatPatentContent(StringBuilder buf, PatentContent value, String fileType) {
+    private static String formatPatentContent(PatentContent value, String fileType) {
         PatentInfo p = value.getInfo();
+        StringBuilder buf = new StringBuilder();
         buf.append(formatDocId(p.getDocdbId())).append("\t");
         buf.append(formatDate(p.getDate())).append("\t");
         buf.append(formatContent(value.getValue(), fileType));
-        return buf;
+        return buf.toString();
     }
 
     private static List<List<String>> parseFile(File file, String fileType) throws Exception {
