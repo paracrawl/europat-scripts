@@ -4,7 +4,7 @@ import argparse
 import datetime
 import os
 
-from collections import Counter, OrderedDict
+from collections import defaultdict, Counter, OrderedDict
 from pathlib import Path
 
 ENTRIES = 'entries'
@@ -91,6 +91,15 @@ def calculate_counts(args, year):
     infofile = '{}/{}-info.txt'.format(yeardir, session)
     if not os.path.isdir(yeardir) or not os.path.isfile(infofile):
         return None
+    text = defaultdict(set) if args.verbose else None
+    # count downloaded text entries in the main language
+    downloaded = Counter()
+    for t, f in FILE_TYPES.items():
+        downloaded[t] = count_lines('{}/{}-{}-{}.tab'.format(yeardir, args.country, session, f), text[t])
+    # count unavailable text entries
+    unavailable = Counter()
+    for t in FILE_TYPES:
+        unavailable[t] = count_lines('{}/ids-{}-missing-{}.txt'.format(yeardir, session, t), text[t])
     # find the downloaded PDF files for each patent
     downloaded_pages = Counter()
     for filename in map(lambda x: x.name, Path(yeardir).glob('*.pdf')):
@@ -102,8 +111,6 @@ def calculate_counts(args, year):
     counted = Counter()
     matched = Counter()
     incomplete = Counter()
-    downloaded = Counter()
-    unavailable = Counter()
     pdfs = Counter()
     pages = Counter()
     with open(infofile) as file:
@@ -118,6 +125,9 @@ def calculate_counts(args, year):
             found[DESCRIPTIONS] = 1 * args.country in d
             for f in FILE_TYPES:
                 counted[f] += found[f]
+                if text is not None:
+                    if found[f] and docid not in text[f]:
+                        text[docid].add(f)
             pdf = 1 * args.country in p
             pdfs[COUNTED] += pdf
             pages[COUNTED] += page_count
@@ -149,21 +159,24 @@ def calculate_counts(args, year):
                     if unavailable_page_count > 0:
                         pdfs[INCOMPLETE] += 1
                     pages[UNAVAILABLE] += unavailable_page_count
-    # count downloaded text entries in the main language
-    for t, f in FILE_TYPES.items():
-        downloaded[t] = count_lines('{}/{}-{}-{}.tab'.format(yeardir, args.country, session, f))
-    # count unavailable text entries
-    for t in FILE_TYPES:
-        unavailable[t] = count_lines('{}/ids-{}-missing-{}.txt'.format(yeardir, session, t))
+    if text is not None:
+        for f in FILE_TYPES:
+            del text[f]
+        for docid in sorted(text):
+            missing = text[docid]
+            print('{}: missing {}'.format(docid, ' '.join(missing)))
     # return the results
     return counted, incomplete, matched, downloaded, unavailable, pdfs, pages
 
-def count_lines(filename):
+def count_lines(filename, docids=None):
     count = 0
     if os.path.isfile(filename):
         with open(filename) as file:
             for line in file:
                 count += 1
+                if docids is not None:
+                    docid = line.strip().split()[0]
+                    docids.add(docid.replace('-', '.'))
     return count
 
 def find_unavailable_pages(filename):
