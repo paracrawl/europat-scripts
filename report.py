@@ -34,19 +34,19 @@ def compute_and_print_counts(args):
         if result is None:
             print('{}: no results'.format(year))
             continue
-        print_counts(args, result, year)
+        if not args.summary:
+            print_counts(args, result, year)
         totals = [x+y for (x, y) in zip(totals, result)]
     if args.start != args.end:
-        print_counts(args, totals)
+        years = '{}-{} total'.format(args.start, args.end)
+        print_counts(args, totals, years)
 
-def print_counts(args, result, year=None):
+def print_counts(args, result, years):
     counted, incomplete, matched, downloaded, unavailable, pdfs, pages = result
-    if year is None:
-        year = 'total'
     search_incomplete = incomplete[PDFS] > 0
     pdf_counts = {PDFS : pdfs, PAGES : pages}
     text = ', {} incomplete'.format(incomplete[ENTRIES]) if incomplete[ENTRIES] else ''
-    print('\n{} {}: {} entries{}'.format(args.country, year, counted[ENTRIES], text))
+    print('\n{} {}: {} entries{}'.format(args.country, years, counted[ENTRIES], text))
     if counted[ENTRIES] == 0:
         return
     limit = ' ({} page limit)'.format(args.limit) if args.limit else ''
@@ -212,12 +212,15 @@ def main():
     parser.add_argument('end', metavar='end-year', nargs='?', help='Last year of patents to process', type=check_year)
     parser.add_argument('--limit', help='Maximum number of PDF pages (default {})'.format(limit), default=limit, type=check_limit)
     parser.add_argument('--infodir', help='Directory with info files', default=infodir)
+    parser.add_argument('-s', '--summary', help="Only print total counts", action="store_true")
     parser.add_argument('-v', '--verbose', help="Verbose output", action="store_true")
     args = parser.parse_args()
 
     # dynamic defaults for missing positional args
     args.end = args.end or args.start or endyear
     args.start = args.start or startyear
+    # if there is only a single year, don't label it as a summary
+    args.summary = args.summary and args.end != args.start
     compute_and_print_counts(args)
 
 
