@@ -111,15 +111,14 @@ def calculate_counts(args, year):
             counted[ENTRIES] += 1
             docid, _, _, t, a, c, d, p, n = line.split('\t')
             page_count = 0 if 'null' in n else int(n)
-            title = 1 * args.country in t
-            abstract = 1 * args.country in a
-            claims = 1 * args.country in c
-            description = 1 * args.country in d
+            found = {}
+            found[TITLES] = 1 * args.country in t
+            found[ABSTRACTS] = 1 * args.country in a
+            found[CLAIMS] = 1 * args.country in c
+            found[DESCRIPTIONS] = 1 * args.country in d
+            for f in FILE_TYPES:
+                counted[f] += found[f]
             pdf = 1 * args.country in p
-            counted[TITLES] += title
-            counted[ABSTRACTS] += abstract
-            counted[CLAIMS] += claims
-            counted[DESCRIPTIONS] += description
             pdfs[COUNTED] += pdf
             pages[COUNTED] += page_count
             incomplete[TITLES] += 1 * 'null' in t
@@ -135,10 +134,8 @@ def calculate_counts(args, year):
                     pdfs[DOWNLOADED] += 1
                 pages[DOWNLOADED] += patent_page_count
                 if args.limit is None or page_count <= args.limit:
-                    matched[TITLES] += title
-                    matched[ABSTRACTS] += abstract
-                    matched[CLAIMS] += claims
-                    matched[DESCRIPTIONS] += description
+                    for f in FILE_TYPES:
+                        matched[f] += found[f]
                     pdfs[MATCHED] += 1
                     pages[MATCHED] += page_count
                     if patent_page_count == page_count:
@@ -156,7 +153,7 @@ def calculate_counts(args, year):
     for t, f in FILE_TYPES.items():
         downloaded[t] = count_lines('{}/{}-{}-{}.tab'.format(yeardir, args.country, session, f))
     # count unavailable text entries
-    for t, f in FILE_TYPES.items():
+    for t in FILE_TYPES:
         unavailable[t] = count_lines('{}/ids-{}-missing-{}.txt'.format(yeardir, session, t))
     # return the results
     return counted, incomplete, matched, downloaded, unavailable, pdfs, pages
