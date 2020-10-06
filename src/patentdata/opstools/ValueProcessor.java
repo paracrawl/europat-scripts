@@ -141,6 +141,8 @@ abstract class ValueProcessor extends OpsResultProcessor
         if (clangs.isEmpty()) {
             if (OpsApiHelper.ENDPOINT_CLAIMS.equals(endPoint)) {
                 LOGGER.trace(XML_MARKER, "  no claims found");
+                processNoResults();
+                LOGGER.error(xmlString);
             }
         } else {
             LOGGER.trace(XML_MARKER, String.format("  claims found for %s", String.join(" ", clangs)));
@@ -150,6 +152,8 @@ abstract class ValueProcessor extends OpsResultProcessor
         if (dlangs.isEmpty()) {
             if (OpsApiHelper.ENDPOINT_DESCRIPTION.equals(endPoint)) {
                 LOGGER.trace(XML_MARKER, "  no descriptions found");
+                processNoResults();
+                LOGGER.error(xmlString);
             }
         } else {
             LOGGER.trace(XML_MARKER, String.format("  descriptions found for %s", String.join(" ", dlangs)));
