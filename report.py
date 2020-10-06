@@ -95,11 +95,13 @@ def calculate_counts(args, year):
     # count downloaded text entries in the main language
     downloaded = Counter()
     for t, f in FILE_TYPES.items():
-        downloaded[t] = count_lines('{}/{}-{}-{}.tab'.format(yeardir, args.country, session, f), text[t])
+        docids = text[t] if text is not None else None
+        downloaded[t] = count_lines('{}/{}-{}-{}.tab'.format(yeardir, args.country, session, f), docids)
     # count unavailable text entries
     unavailable = Counter()
     for t in FILE_TYPES:
-        unavailable[t] = count_lines('{}/ids-{}-missing-{}.txt'.format(yeardir, session, t), text[t])
+        docids = text[t] if text is not None else None
+        unavailable[t] = count_lines('{}/ids-{}-missing-{}.txt'.format(yeardir, session, t), docids)
     # find the downloaded PDF files for each patent
     downloaded_pages = Counter()
     for filename in map(lambda x: x.name, Path(yeardir).glob('*.pdf')):
