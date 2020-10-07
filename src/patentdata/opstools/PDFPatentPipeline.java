@@ -44,6 +44,7 @@ public class PDFPatentPipeline {
     public static final String STAGE_REPORT = "report";
     public static final String STAGE_SAMPLE = "sample";
     public static final String STAGE_SEARCH = "search";
+    public static final String STAGE_TEXT = "text";
 
     private static final Logger LOGGER = LogManager.getLogger();
 
@@ -184,6 +185,7 @@ public class PDFPatentPipeline {
         buf.append("  claims        : download claims").append("\n");
         buf.append("  description   : download descriptions").append("\n");
         buf.append("  biblio        : download titles and abstracts").append("\n");
+        buf.append("  text          : download claims and descriptions").append("\n");
         buf.append("  search        : identify patents").append("\n");
         buf.append("  fulltext      : identify patents with full text").append("\n");
         buf.append("  images        : identify patents with PDFs available").append("\n");
@@ -338,8 +340,12 @@ public class PDFPatentPipeline {
                 break;
             case STAGE_ALL:
                 addStage(STAGE_PDF, stages);
+                addStage(STAGE_TEXT, stages);
+                break;
+            case STAGE_TEXT:
                 addStage(STAGE_CLAIMS, stages);
                 addStage(STAGE_DESCRIPTION, stages);
+                // text is not a real stage - don't add
                 break;
             default:
                 throw new IllegalArgumentException("Unknown stage " + stage);
