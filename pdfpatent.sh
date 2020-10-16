@@ -4,7 +4,7 @@
 
 COMMAND=${1:-report}
 COUNTRY=${2:-HR}
-YEAR_START=${3:-1994}
+YEAR_START=${3:-1980}
 YEAR_END=${4:-${3:-2019}}
 
 if [ "$#" -gt 4 ]; then

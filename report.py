@@ -212,7 +212,7 @@ def check_limit(value):
         raise argparse.ArgumentTypeError(message)
 
 def main():
-    startyear = 1994
+    startyear = 1980
     endyear = datetime.datetime.now().year-1
     limit = os.environ.get('PDF_PAGE_LIMIT', 25)
     infodir = os.environ.get('INFODIR', '/fs/loki0/data/pdfpatents')

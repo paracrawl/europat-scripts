@@ -7,7 +7,7 @@
 # downloaded the PDF files.
 
 COUNTRY=${1:-HR}
-YEAR_START=${2:-1994}
+YEAR_START=${2:-1980}
 YEAR_END=${3:-${2:-2019}}
 
 SCRIPTDIR="${HOME}/tmp"
