@@ -18,7 +18,7 @@ SCRIPT="${SCRIPTDIR}/${COMMAND}-script-`date -Iseconds`.txt"
 
 mkdir -p "${SCRIPTDIR}"
 
-for (( YEAR="${YEAR_START}"; YEAR<="${YEAR_END}"; YEAR++ ))
+for (( YEAR="${YEAR_END}"; YEAR>="${YEAR_START}"; YEAR-- ))
 do
     echo "${COUNTRY}" "${YEAR}" "${COMMAND}" >> "${SCRIPT}"
 done
