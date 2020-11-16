@@ -3,6 +3,8 @@ package patentdata.opstools;
 import java.nio.charset.StandardCharsets;
 import java.net.URLEncoder;
 
+import java.time.YearMonth;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -55,8 +57,7 @@ public class FindPatentIds {
             if (year == null) {
                 queries.add(makeEncodedQuery(basicQuery));
             } else {
-                allQueries.putAll(generateQueries(basicQuery, year.intValue()));
-                queries.addAll(allQueries.get(null));
+                queries.addAll(generateQueries(basicQuery, year.intValue(), allQueries));
             }
         }
 
@@ -188,40 +189,42 @@ public class FindPatentIds {
             return false;
         }
 
-        private Map<String, List<String>> generateQueries(String basicQuery, int year) throws Exception {
+        // -------------------------------------------------------------------------------
+
+        static List<String> generateQueries(String basicQuery, int year, Map<String, List<String>> queries) throws Exception {
             // query the whole year
-            Map<String, List<String>> map = new LinkedHashMap<>();
             StringBuilder buf = new StringBuilder(basicQuery);
             buf.append(" pd=").append(year);
             String yearQuery = makeEncodedQuery(buf.toString());
-            map.put(null, Collections.singletonList(yearQuery));
-            Map<String, List<String>> monthQueries = generateQueriesByMonth(basicQuery, year);
-            map.put(yearQuery, new ArrayList<>(monthQueries.keySet()));
-            map.putAll(monthQueries);
-            return map;
+            queries.put(yearQuery, generateQueriesByMonth(basicQuery, year, queries));
+            return Collections.singletonList(yearQuery);
         }
 
-        private Map<String, List<String>> generateQueriesByMonth(String basicQuery, int year) throws Exception {
+        static List<String> generateQueriesByMonth(String basicQuery, int year, Map<String, List<String>> queries) throws Exception {
             // query one month at a time
             Map<String, List<String>> map = new LinkedHashMap<>();
-            for (int month = 1; month < 13; month++) {
+            for (int month = 1; month <= 12; month++) {
                 StringBuilder buf = new StringBuilder(basicQuery);
                 buf.append(" pd=").append(String.format("%d%02d", year, month));
                 String monthQuery = makeEncodedQuery(buf.toString());
-                map.put(monthQuery, generateQueriesByDays(basicQuery, year, month));
+                map.put(monthQuery, generateQueriesByDayBlocks(basicQuery, year, month, queries));
             }
-            return map;
+            queries.putAll(map);
+            return new ArrayList<>(map.keySet());
         }
 
-        private List<String> generateQueriesByDays(String basicQuery, int year, int month) throws Exception {
-            // query in ~6-day chunks to avoid end-of-month date calculations
-            List<String> list = new ArrayList<>();
+        static List<String> generateQueriesByDayBlocks(String basicQuery, int year, int month, Map<String, List<String>> queries) throws Exception {
+            // query in ~6-day chunks
             int[] days = new int[]{1, 7, 13, 19, 25};
+            Map<String, List<String>> map = new LinkedHashMap<>();
             for (int i = 0; i < days.length; i++) {
+                int startDay = days[i];
+                int endDay = -1;
                 StringBuilder buf = new StringBuilder(basicQuery);
-                String start = String.format("%d%02d%02d", year, month, days[i]);
+                String start = String.format("%d%02d%02d", year, month, startDay);
                 if (i < days.length - 1) {
-                    String end = String.format("%d%02d%02d", year, month, days[i+1]-1);
+                    endDay += days[i+1];
+                    String end = String.format("%d%02d%02d", year, month, endDay);
                     buf.append(" pd within ");
                     buf.append("\"").append(start).append(" ").append(end).append("\"");
                 } else {
@@ -229,12 +232,28 @@ public class FindPatentIds {
                     buf.append(" and pd>=").append(start);
                 }
                 String daysQuery = makeEncodedQuery(buf.toString());
-                list.add(daysQuery);
+                map.put(daysQuery, generateQueriesByDays(basicQuery, year, month, startDay, endDay));
+            }
+            queries.putAll(map);
+            return new ArrayList<>(map.keySet());
+        }
+
+        static List<String> generateQueriesByDays(String basicQuery, int year, int month, int startDay, int endDay) throws Exception {
+            // query one day at a time
+            if (endDay < 0) {
+                endDay = YearMonth.of(year, month).lengthOfMonth();
+            }
+            List<String> list = new ArrayList<>();
+            for (int day = startDay; day <= endDay; day++) {
+                StringBuilder buf = new StringBuilder(basicQuery);
+                buf.append(" pd=").append(String.format("%d%02d%02d", year, month, day));
+                String dayQuery = makeEncodedQuery(buf.toString());
+                list.add(dayQuery);
             }
             return list;
         }
 
-        private String makeEncodedQuery(String query) throws Exception {
+        static String makeEncodedQuery(String query) throws Exception {
             LOGGER.trace(String.format("query: %s", query));
             StringBuilder buf = new StringBuilder();
             if (! query.isEmpty()) {
