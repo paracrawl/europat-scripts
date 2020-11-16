@@ -7,6 +7,9 @@ import os
 from collections import defaultdict, Counter, OrderedDict
 from pathlib import Path
 
+EARLIEST_YEAR = 1800
+DEFAULT_START_YEAR = 1980
+
 ENTRIES = 'entries'
 TITLES = 'titles'
 ABSTRACTS = 'abstracts'
@@ -20,6 +23,7 @@ WANTED = 'wanted'
 DOWNLOADED = 'downloaded'
 INCOMPLETE = 'incomplete'
 UNAVAILABLE = 'unavailable'
+
 FILE_TYPES = OrderedDict()
 FILE_TYPES.update({TITLES : 'title'})
 FILE_TYPES.update({ABSTRACTS : 'abstract'})
@@ -197,7 +201,7 @@ def check_country(value):
 
 def check_year(value):
     ivalue = int(value)
-    if ivalue < 1900 or ivalue >= datetime.datetime.now().year:
+    if ivalue < EARLIEST_YEAR or ivalue >= datetime.datetime.now().year:
         raise argparse.ArgumentTypeError("%s is out of range" % value)
     return ivalue
 
@@ -212,7 +216,7 @@ def check_limit(value):
         raise argparse.ArgumentTypeError(message)
 
 def main():
-    startyear = 1980
+    startyear = DEFAULT_START_YEAR
     endyear = datetime.datetime.now().year-1
     limit = os.environ.get('PDF_PAGE_LIMIT', 25)
     infodir = os.environ.get('INFODIR', '/fs/loki0/data/pdfpatents')
@@ -231,7 +235,7 @@ def main():
     # dynamic defaults for missing positional args
     args.end = args.end or args.start or endyear
     args.start = args.start or startyear
-    # if there is only a single year, don't label it as a summary
+    # if there is only a single year, don't repeat it as a summary
     args.summary = args.summary and args.end != args.start
     compute_and_print_counts(args)
 
