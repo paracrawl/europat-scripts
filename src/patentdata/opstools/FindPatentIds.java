@@ -20,6 +20,10 @@ import org.w3c.dom.NodeList;
 
 public class FindPatentIds {
 
+    // IPC: International Patent Classification
+    private static final String[] IPC_SECTIONS = {"A", "B", "C", "D", "E", "F", "G", "H"};
+    private static final int NUM_IPC_CLASSES = 100;
+
     public static boolean run(OpsApiHelper api, PatentResultWriter writer, String countryCode, Integer year, List<PatentInfo> info) throws Exception {
         PatentIdProcessor p = new PatentIdProcessor(countryCode, year, info);
         if (api.callApi(p, p, writer)) {
@@ -232,25 +236,51 @@ public class FindPatentIds {
                     buf.append(" and pd>=").append(start);
                 }
                 String daysQuery = makeEncodedQuery(buf.toString());
-                map.put(daysQuery, generateQueriesByDays(basicQuery, year, month, startDay, endDay));
+                map.put(daysQuery, generateQueriesByDays(basicQuery, year, month, startDay, endDay, queries));
             }
             queries.putAll(map);
             return new ArrayList<>(map.keySet());
         }
 
-        static List<String> generateQueriesByDays(String basicQuery, int year, int month, int startDay, int endDay) throws Exception {
+        static List<String> generateQueriesByDays(String basicQuery, int year, int month, int startDay, int endDay, Map<String, List<String>> queries) throws Exception {
             // query one day at a time
             if (endDay < 0) {
                 endDay = YearMonth.of(year, month).lengthOfMonth();
             }
-            List<String> list = new ArrayList<>();
+            Map<String, List<String>> map = new LinkedHashMap<>();
             for (int day = startDay; day <= endDay; day++) {
                 StringBuilder buf = new StringBuilder(basicQuery);
                 buf.append(" pd=").append(String.format("%d%02d%02d", year, month, day));
                 String dayQuery = makeEncodedQuery(buf.toString());
-                list.add(dayQuery);
+                map.put(dayQuery, generateQueriesByIpcSection(buf.toString(), queries));
             }
-            return list;
+            queries.putAll(map);
+            return new ArrayList<>(map.keySet());
+        }
+
+        static List<String> generateQueriesByIpcSection(String basicQuery, Map<String, List<String>> queries) throws Exception {
+            // query one IPC section at a time
+            Map<String, List<String>> map = new LinkedHashMap<>();
+            for (String ipcSection : IPC_SECTIONS) {
+                StringBuilder buf = new StringBuilder(basicQuery);
+                buf.append(" ipc=").append(String.format("%s", ipcSection));
+                String query = makeEncodedQuery(buf.toString());
+                map.put(query, generateQueriesByIpcClass(basicQuery, ipcSection, queries));
+            }
+            queries.putAll(map);
+            return new ArrayList<>(map.keySet());
+        }
+
+        static List<String> generateQueriesByIpcClass(String basicQuery, String ipcSection, Map<String, List<String>> queries) throws Exception {
+            // query one IPC class at a time
+            Map<String, List<String>> map = new LinkedHashMap<>();
+            for (int ipcClass = 1; ipcClass < NUM_IPC_CLASSES; ipcClass++) {
+                StringBuilder buf = new StringBuilder(basicQuery);
+                buf.append(" ipc=").append(String.format("%s%02d", ipcSection, ipcClass));
+                String query = makeEncodedQuery(buf.toString());
+                map.put(query, null);
+            }
+            return new ArrayList<>(map.keySet());
         }
 
         static String makeEncodedQuery(String query) throws Exception {
