@@ -32,25 +32,28 @@ FILE_TYPES.update({DESCRIPTIONS : 'desc'})
 
 def compute_and_print_counts(args):
     # aggregate entries across all years
+    sample = ' (sample)' if args.sample else ''
     totals = [Counter(), Counter(), Counter(), Counter(), Counter(), Counter(), Counter()]
     for year in range(args.start, args.end+1):
+        label = '{}{}'.format(year, sample)
         result = calculate_counts(args, year)
         if result is None:
-            print('{}: no results'.format(year))
+            if not args.summary:
+                print('{}: no results'.format(label))
             continue
         if not args.summary:
-            print_counts(args, result, year)
+            print_counts(args, result, label)
         totals = [x+y for (x, y) in zip(totals, result)]
     if args.start != args.end:
-        years = '{}-{} total'.format(args.start, args.end)
-        print_counts(args, totals, years)
+        label = '{}-{}{} total'.format(args.start, args.end, sample)
+        print_counts(args, totals, label)
 
-def print_counts(args, result, years):
+def print_counts(args, result, label):
     counted, incomplete, matched, downloaded, unavailable, pdfs, pages = result
     search_incomplete = incomplete[PDFS] > 0
     pdf_counts = {PDFS : pdfs, PAGES : pages}
     text = ', {} incomplete'.format(incomplete[ENTRIES]) if incomplete[ENTRIES] else ''
-    print('\n{} {}: {} entries{}'.format(args.country, years, counted[ENTRIES], text))
+    print('\n{} {}: {} entries{}'.format(args.country, label, counted[ENTRIES], text))
     if counted[ENTRIES] == 0:
         return
     limit = ' ({} page limit)'.format(args.limit) if args.limit else ''
@@ -90,8 +93,9 @@ def print_counts(args, result, years):
             print('{:>6} wanted {} still to download'.format(remaining_val, t))
 
 def calculate_counts(args, year):
+    sample = '-sample' if args.sample else ''
     session = '{}-{}'.format(args.country, year)
-    yeardir = '{}/{}'.format(args.infodir, session)
+    yeardir = '{}/{}{}'.format(args.infodir, session, sample)
     infofile = '{}/{}-info.txt'.format(yeardir, session)
     if not os.path.isdir(yeardir) or not os.path.isfile(infofile):
         return None
@@ -228,6 +232,7 @@ def main():
     parser.add_argument('end', metavar='end-year', nargs='?', help='Last year of patents to process', type=check_year)
     parser.add_argument('--limit', help='Maximum number of PDF pages (default {})'.format(limit), default=limit, type=check_limit)
     parser.add_argument('--infodir', help='Directory with info files', default=infodir)
+    parser.add_argument('--sample', help="Get sample counts", action="store_true")
     parser.add_argument('-s', '--summary', help="Only print total counts", action="store_true")
     parser.add_argument('-v', '--verbose', help="Verbose output", action="store_true")
     args = parser.parse_args()
