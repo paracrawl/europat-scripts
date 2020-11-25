@@ -96,7 +96,7 @@ def calculate_counts(args, year):
     sample = '-sample' if args.sample else ''
     session = '{}-{}'.format(args.country, year)
     yeardir = '{}/{}{}'.format(args.infodir, session, sample)
-    infofile = '{}/{}-info.txt'.format(yeardir, session)
+    infofile = '{}/{}{}-info.txt'.format(yeardir, session, sample)
     if not os.path.isdir(yeardir) or not os.path.isfile(infofile):
         return None
     text = defaultdict(set) if args.verbose else None
