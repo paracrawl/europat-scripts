@@ -109,6 +109,7 @@ public class FindPatentIds {
 
         @Override
         public void writeCheckpointResults(PatentResultWriter writer) throws Exception {
+            writer.writeQueries(queries.subList(queryId, queries.size()));
             writer.writeInfo(getInfo());
             writer.writeIds(getDocIds());
         }
@@ -117,8 +118,14 @@ public class FindPatentIds {
         public void readCheckpointResults(PatentResultWriter writer) throws Exception {
             // only run the search once
             if (writer.infoFileExists()) {
-                LOGGER.debug("  search done");
                 queries.clear();
+                // look for remaining queries from previous run
+                if (queries.addAll(writer.readQueries())) {
+                    LOGGER.debug("  continue search");
+                    addInfo(writer.readInfo());
+                } else {
+                    LOGGER.debug("  search done");
+                }
             }
         }
 
