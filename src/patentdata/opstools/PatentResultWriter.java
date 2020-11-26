@@ -105,6 +105,20 @@ public class PatentResultWriter {
     }
 
     /**
+     * Read queries from a file in a standard location.
+     */
+    public List<String> readQueries() throws Exception {
+        return readLines(getQueriesFile());
+    }
+
+    /**
+     * Write the given queries into a file in a standard location.
+     */
+    public void writeQueries(List<String> lines) throws Exception {
+        writeLines(getQueriesFile(), lines);
+    }
+
+    /**
      * Write the given lines into a file in a standard location.
      */
     public void writeIds(List<String> lines) throws Exception {
@@ -261,6 +275,11 @@ public class PatentResultWriter {
 
     private File getInfoFile() {
         String fileName = String.join("-", countryCode, year, "info") + ".txt";
+        return new File(resultDir, fileName);
+    }
+
+    private File getQueriesFile() {
+        String fileName = String.join("-", "queries", countryCode, year) + ".txt";
         return new File(resultDir, fileName);
     }
 
