@@ -11,6 +11,8 @@ import java.util.TreeMap;
 
 import org.apache.http.HttpResponse;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
 
@@ -20,6 +22,8 @@ import org.apache.logging.log4j.MarkerManager;
  * Author: Elaine Farrow
  */
 public abstract class OpsResultProcessor {
+
+    private static final Logger LOGGER = LogManager.getLogger();
 
     /**
      * Marker for logging information about XML processing.
@@ -122,6 +126,20 @@ public abstract class OpsResultProcessor {
             info.put(docId, new PatentInfo(docId));
         }
         return info.get(docId);
+    }
+
+    /**
+     * Stores the given patent information.
+     */
+    protected void addInfo(Collection<PatentInfo> inputInfo) {
+        for (PatentInfo p : inputInfo) {
+            String docId = p.getDocdbId();
+            if (info.containsKey(docId)) {
+                LOGGER.error(String.format("Duplicate entry for %s - skipped", docId));
+            } else {
+                info.put(docId, p);
+            }
+        }
     }
 
     /**
