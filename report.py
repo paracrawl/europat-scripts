@@ -33,23 +33,26 @@ FILE_TYPES.update({DESCRIPTIONS : 'desc'})
 def compute_and_print_counts(args):
     # aggregate entries across all years
     sample = ' (sample)' if args.sample else ''
-    totals = [Counter(), Counter(), Counter(), Counter(), Counter(), Counter(), Counter()]
+    totals = [Counter(), Counter(), Counter(), Counter(), Counter(), Counter()]
+    text_totals = defaultdict(Counter)
     for year in range(args.start, args.end+1):
         label = '{}{}'.format(year, sample)
-        result = calculate_counts(args, year)
+        result, text_result = calculate_counts(args, year)
         if result is None:
             if not args.summary:
                 print('{}: no results'.format(label))
             continue
         if not args.summary:
-            print_counts(args, result, label)
+            print_counts(args, result, text_result, label)
         totals = [x+y for (x, y) in zip(totals, result)]
+        for lang in text_result:
+            text_totals[lang] += text_result[lang]
     if args.start != args.end:
         label = '{}-{}{} total'.format(args.start, args.end, sample)
-        print_counts(args, totals, label)
+        print_counts(args, totals, text_totals, label)
 
-def print_counts(args, result, label):
-    counted, incomplete, matched, downloaded, unavailable, pdfs, pages = result
+def print_counts(args, result, text_results, label):
+    counted, incomplete, matched, unavailable, pdfs, pages = result
     search_incomplete = incomplete[PDFS] > 0
     pdf_counts = {PDFS : pdfs, PAGES : pages}
     text = ', {} incomplete'.format(incomplete[ENTRIES]) if incomplete[ENTRIES] else ''
@@ -67,8 +70,15 @@ def print_counts(args, result, label):
         matched_val = '?' if search_incomplete or incomplete[t] else matched[t]
         counted_val = '?' if incomplete[t] else counted[t]
         print('{:>6} / {:<5} {} have wanted PDFs'.format(matched_val, counted_val, t))
-    for t in FILE_TYPES:
-        print('{:>6} {} downloaded'.format(downloaded[t], t))
+    num_langs = len(text_results)
+    for lang in sorted(text_results):
+        downloaded = text_results[lang]
+        if num_langs > 1:
+            print('  -- lang={} --'.format(lang))
+        for t in FILE_TYPES:
+            print('{:>6} {} downloaded'.format(downloaded[t], t))
+    if num_langs > 1:
+        print('  -- ------- --')
     for t in FILE_TYPES:
         unavailable_val = unavailable[t]
         if unavailable_val > 0:
@@ -98,13 +108,16 @@ def calculate_counts(args, year):
     yeardir = '{}/{}{}'.format(args.infodir, session, sample)
     infofile = '{}/{}{}-info.txt'.format(yeardir, session, sample)
     if not os.path.isdir(yeardir) or not os.path.isfile(infofile):
-        return None
+        return None, None
     text = defaultdict(set) if args.verbose else None
-    # count downloaded text entries in the main language
-    downloaded = Counter()
+    # find the downloaded text entries for each language
+    text_results = defaultdict(Counter)
     for t, f in FILE_TYPES.items():
-        docids = text[t] if text is not None else None
-        downloaded[t] = count_lines('{}/{}-{}-{}.tab'.format(yeardir, args.country, session, f), docids)
+        for filename in map(lambda x: x.name, Path(yeardir).glob('{}-*-{}-{}.tab'.format(args.country, year, f))):
+            lang = filename.split('-')[1]
+            downloaded = text_results[lang]
+            docids = text[t] if text is not None and lang == args.country else None
+            downloaded[t] = count_lines('{}/{}'.format(yeardir, filename), docids)
     # count unavailable text entries
     unavailable = Counter()
     for t in FILE_TYPES:
@@ -176,7 +189,7 @@ def calculate_counts(args, year):
             missing = text[docid]
             print('{}: missing {}'.format(docid, ' '.join(missing)))
     # return the results
-    return counted, incomplete, matched, downloaded, unavailable, pdfs, pages
+    return (counted, incomplete, matched, unavailable, pdfs, pages), text_results
 
 def count_lines(filename, docids=None):
     count = 0
@@ -201,16 +214,16 @@ def find_unavailable_pages(filename):
 def check_country(value):
     if len(value) == 2 and value.isalpha():
         return value.upper()
-    raise argparse.ArgumentTypeError("must be a 2-letter country code")
+    raise argparse.ArgumentTypeError('must be a 2-letter country code')
 
 def check_year(value):
     ivalue = int(value)
     if ivalue < EARLIEST_YEAR or ivalue >= datetime.datetime.now().year:
-        raise argparse.ArgumentTypeError("%s is out of range" % value)
+        raise argparse.ArgumentTypeError('%s is out of range' % value)
     return ivalue
 
 def check_limit(value):
-    message = "must be a positive integer, or zero for no limit"
+    message = 'must be a positive integer, or zero for no limit'
     try:
         ivalue = int(value)
         if ivalue < 0:
@@ -232,9 +245,9 @@ def main():
     parser.add_argument('end', metavar='end-year', nargs='?', help='Last year of patents to process', type=check_year)
     parser.add_argument('--limit', help='Maximum number of PDF pages (default {})'.format(limit), default=limit, type=check_limit)
     parser.add_argument('--infodir', help='Directory with info files', default=infodir)
-    parser.add_argument('--sample', help="Get sample counts", action="store_true")
-    parser.add_argument('-s', '--summary', help="Only print total counts", action="store_true")
-    parser.add_argument('-v', '--verbose', help="Verbose output", action="store_true")
+    parser.add_argument('--sample', help='Get sample counts', action='store_true')
+    parser.add_argument('-s', '--summary', help='Only print total counts', action='store_true')
+    parser.add_argument('-v', '--verbose', help='Verbose output', action='store_true')
     args = parser.parse_args()
 
     # dynamic defaults for missing positional args
@@ -245,6 +258,6 @@ def main():
     compute_and_print_counts(args)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     # execute only if run as a script
     main()
