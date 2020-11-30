@@ -109,7 +109,7 @@ public class FindPatentIds {
 
         @Override
         public void writeCheckpointResults(PatentResultWriter writer) throws Exception {
-            writer.writeQueries(queries.subList(queryId, queries.size()));
+            writer.writeQueries(queries.subList(hasMore ? queryId : queryId+1, queries.size()));
             writer.writeInfo(getInfo());
             writer.writeIds(getDocIds());
         }
