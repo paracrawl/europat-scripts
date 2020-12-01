@@ -218,7 +218,7 @@ def check_country(value):
 
 def check_year(value):
     ivalue = int(value)
-    if ivalue < EARLIEST_YEAR or ivalue >= datetime.datetime.now().year:
+    if ivalue < EARLIEST_YEAR or ivalue > datetime.datetime.now().year:
         raise argparse.ArgumentTypeError('%s is out of range' % value)
     return ivalue
 
