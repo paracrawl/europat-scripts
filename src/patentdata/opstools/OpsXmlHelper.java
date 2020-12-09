@@ -5,6 +5,9 @@ import java.io.StringReader;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -18,15 +21,23 @@ import org.xml.sax.InputSource;
  */
 public class OpsXmlHelper {
 
+    private static final Logger LOGGER = LogManager.getLogger();
+
     /**
      * Parse the XML string and return the document element.
      */
     public static Element parseResults(String xmlString) throws Exception {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.setNamespaceAware(true);
-        DocumentBuilder builder = factory.newDocumentBuilder();
-        Document doc = builder.parse(new InputSource(new StringReader(xmlString)));
-        return doc.getDocumentElement();
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setNamespaceAware(true);
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(new InputSource(new StringReader(xmlString)));
+            return doc.getDocumentElement();
+        } catch (Exception ex) {
+            // capture the XML that failed to parse
+            LOGGER.error(xmlString);
+            throw ex;
+        }
     }
 
     /**
