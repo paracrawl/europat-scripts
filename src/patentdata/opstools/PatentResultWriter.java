@@ -108,7 +108,7 @@ public class PatentResultWriter {
      * Read queries from a file in a standard location.
      */
     public List<String> readQueries() throws Exception {
-        return readLines(getQueriesFile());
+        return dropEmptyLines(readLines(getQueriesFile()));
     }
 
     /**
@@ -364,6 +364,16 @@ public class PatentResultWriter {
         List<String> result = new ArrayList<>();
         if (file.exists()) {
             result.addAll(FileUtils.readLines(file, StandardCharsets.UTF_8));
+        }
+        return result;
+    }
+
+    private static List<String> dropEmptyLines(List<String> lines) throws Exception {
+        List<String> result = new ArrayList<>();
+        for (String line : lines) {
+            if (line.length() > 0) {
+                result.add(line);
+            }
         }
         return result;
     }
