@@ -2,13 +2,16 @@
 
 # ./match.sh NO 2018 2019 | more
 
+# exit on the first error
+set -e
+
 # The environment variable COUNT_PDFS (set externally) determines
 # whether we count all matching patents, or only those where we have
 # downloaded the PDF files.
 
 COUNTRY=${1:-HR}
 YEAR_START=${2:-1980}
-YEAR_END=${3:-${2:-2019}}
+YEAR_END=${3:-${2:-2020}}
 
 SCRIPTDIR="${HOME}/tmp"
 FAMILYDIR="${FAMILYDIR:-/fs/bil0/europat/family}"

@@ -2,10 +2,13 @@
 
 # nohup ./pdfpatent.sh pdf NO 2018 > script.out &
 
+# exit on the first error
+set -e
+
 COMMAND=${1:-report}
 COUNTRY=${2:-HR}
 YEAR_START=${3:-1980}
-YEAR_END=${4:-${3:-2019}}
+YEAR_END=${4:-${3:-2020}}
 
 if [ "$#" -gt 4 ]; then
     shift 4

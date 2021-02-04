@@ -2,9 +2,12 @@
 
 # nohup ./pdfyears.sh prepdf 1970 1979 > script.out &
 
+# exit on the first error
+set -e
+
 COMMAND=${1:-report}
 YEAR_START=${2:-1980}
-YEAR_END=${3:-${2:-2019}}
+YEAR_END=${3:-${2:-2020}}
 
 if [ "$#" -gt 3 ]; then
     shift 3
