@@ -17,6 +17,9 @@ SCRIPTDIR="${HOME}/tmp"
 FAMILYDIR="${FAMILYDIR:-/fs/bil0/europat/family}"
 INFODIR="${INFODIR:-/fs/loki0/data/pdfpatents}"
 
+# "catch exit status 1" grep wrapper
+c1grep() { grep "$@" || test $? = 1; }
+
 for (( MATCHYEAR="${YEAR_START}"; MATCHYEAR<="${YEAR_END}"; MATCHYEAR++ ))
 do
     MATCHFILE="${SCRIPTDIR}/${COUNTRY}-${MATCHYEAR}-matched.txt"
@@ -46,10 +49,10 @@ do
                 YEARS="${YEARS}\t${MATCHYEAR}"
             fi
             if [[ -z "${COUNT_PDFS}" ]]; then
-                COUNT=`grep -cF -f "${MATCHFILE}" "${INFOFILE}"`
+                COUNT=`c1grep -cF -f "${MATCHFILE}" "${INFOFILE}"`
             else
                 # find rows with a missing text field and with PDFs available
-                COUNT=`grep -F -f "${MATCHFILE}" "${INFOFILE}" | cut -f4-8 | grep -vP "${FIELDPATTERN}" | grep -P "${PDFPATTERN}" | wc -l`
+                COUNT=`c1grep -F -f "${MATCHFILE}" "${INFOFILE}" | cut -f4-8 | c1grep -vP "${FIELDPATTERN}" | c1grep -P "${PDFPATTERN}" | wc -l`
             fi
             COUNTS="${COUNTS}\t${COUNT}"
             if [[ "${YEAR}" = "${YEAR_END}" ]]; then

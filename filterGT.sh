@@ -17,6 +17,9 @@ INFODIR="${INFODIR:-/data/patents/pdfpatents}"
 
 PATTERN="Google Translate"
 
+# "catch exit status 1" grep wrapper
+c1grep() { grep "$@" || test $? = 1; }
+
 for (( YEAR="${YEAR_START}"; YEAR<="${YEAR_END}"; YEAR++ ))
 do
     YEARDIR="${INFODIR}/${COUNTRY}-${YEAR}"
@@ -25,7 +28,7 @@ do
         ORIGFILE="$YEARDIR/$BASENAME"
         BACKUPFILE="$YEARDIR/all-$BASENAME"
         if [ -f "$BACKUPFILE" ]; then
-            grep -v "$PATTERN" "$BACKUPFILE" > "$ORIGFILE"
+            c1grep -v "$PATTERN" "$BACKUPFILE" > "$ORIGFILE"
         fi
     done
 done
