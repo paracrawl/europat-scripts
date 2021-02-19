@@ -4,6 +4,7 @@
 [submodule "src/bleualign"]
 	path = src/bleualign
 	url = git@github.com:bitextor/bleualign-cpp.git
+	ignore = dirty
 [submodule "src/preprocess"]
 	path = src/preprocess
 	url = git@github.com:kpu/preprocess.git
