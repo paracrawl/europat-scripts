@@ -1,41 +1,27 @@
 #!/bin/bash
+#SBATCH --account dc007
+#SBATCH --nodes 1
+#SBATCH --gres gpu:4
+#SBATCH --time 24:00:00
+#SBATCH --qos gpu
+#SBATCH --partition gpu-cascade,gpu-skylake
 set -eou pipefail
 
+PREFIX=$(dirname $(realpath $0))
+source $PREFIX/init.sh
+
 # How many bleualign?
-THREADS=6
-
-ROOT=$(dirname $(realpath $0))
-
-# Add the local bin to my path plz
-export PATH=$ROOT/bin:$PATH
-
-# Note subword nmt is not installed in bin, you'll have to
-# pip3 install it yourself at the moment
-export BPE_BIN="subword-nmt apply-bpe"
-export MARIAN_BIN=marian-decoder
+THREADS=${SLURM_CPUS_ON_NODE:-4}
 
 export SLANG=$1
 shift
 
-export GPU=$1
-shift
-
-case $SLANG in
-	de)
-		MODEL="$ROOT/DC01311513/nmt/v1/translate.sh"
-		;;
-	fr)
-		MODEL="$ROOT/DC01311514/nmt/v1/translate.sh"
-		;;
-	dummy)
-		SLANG=de
-		MODEL="$ROOT/debug-model/translate.sh"
-		;;
-	*)
-		echo "Supported languages: de, fr" 1>&2
-		exit 1
-		;;
-esac
+if [[ -f $PREFIX/models/${SLANG}-en/translate.sh ]]; then
+	MODEL=$PREFIX/models/${SLANG}-en/translate.sh
+else
+	echo "Supported languages: de, fr" 1>&2
+	exit 1
+fi
 
 col () {
 	cut -d$'\t' -f$1
@@ -54,16 +40,8 @@ document_to_base64() {
 	| docenc -0
 }
 
-preprocess () {
-	b64filter java -jar $ROOT/bin/classbase.jar \
-		-C  $ROOT/resource/classbase.json \
-		-I /dev/stdin \
-		-L ${1^^} \
-		-S
-}
-
 translate () {
-	b64filter foldfilter -w 1000 $MODEL \
+	b64filter foldfilter -s -w 1000 $MODEL \
 		--quiet \
 		--beam-size 6 \
 		--normalize 1 \
@@ -78,6 +56,7 @@ buffer () {
 	local buffer=$1
 	local lines=$2
 	local name=$3
+
 	pv -l -C -B $buffer -s $lines -c -N $name
 }
 
@@ -86,7 +65,8 @@ buffer () {
 }
 
 progress() {
-	pv -l -s $1 -c -N $2
+	#pv -l -s $1 -c -N $2
+	cat
 }
 
 align () {
@@ -100,23 +80,37 @@ align () {
 		-N 1 \
 		bleualign_cpp --bleu-threshold 0.2 \
 	| gzip \
-	> $(basename $file .tab)-aligned.gz
+	> $(basename $file .tab)-aligned.gz.$$
+	mv $(basename $file .tab)-aligned.gz{.$$,}
 }
 
 for file in $*; do
 	n=$(cat $file | wc -l)
 	echo "$(basename $file): $n documents"
-	paste \
+
+	# Moved the translation column from paste out of the file substitution
+	# into stdin of paste so any errors here (because here is the most
+	# likely place for errors to happen) will cause the program to fail.
+	cat $file \
+	| col 2 \
+	| document_to_base64 \
+	| progress $n prep-$SLANG \
+	| buffer 512M \
+	| translate \
+	| progress $n translate \
+	| paste \
 		<(cat $file | col 1) \
 		<(cat $file | col 3) \
 		<(cat $file | col 2 | document_to_base64) \
 		<(cat $file | col 4 | document_to_base64) \
-		<(cat $file | col 2 | document_to_base64 | preprocess $SLANG | progress $n prep-$SLANG | buffer 512M | translate | progress $n translate) \
-		<(cat $file | col 4 | document_to_base64 | preprocess en | progress $n prep-en | buffer 512M) \
+		- \
+		<(cat $file | col 4 | document_to_base64 | progress $n prep-en | buffer 512M) \
 	| progress $n write \
 	| gzip -9c \
-	> $(basename $file .tab)-bleualign-input.tab.gz
+	> $(basename $file .tab)-bleualign-input.tab.gz.$$
 	
+	mv $(basename $file .tab)-bleualign-input.tab.gz{.$$,}
+
 	# Run align in the background we dont want to wait for it
 	align $file &
 done
