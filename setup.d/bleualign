@@ -1,0 +1,18 @@
+is-installed() {
+	test -x bin/bleualign_cpp
+}
+
+depends() {
+	echo boost
+}
+
+install() {
+	pushd bleualign
+	mkdir -p build && cd build
+	cmake .. \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DPREPROCESS_PATH=$PREFIX/src/preprocess
+	make bleualign_cpp
+	exec install bleualign_cpp $PREFIX/bin/
+	popd
+}
