@@ -1,6 +1,7 @@
 [submodule "src/classbase"]
 	path = src/classbase
 	url = git@github.com:paracrawl/europat-classbase.git
+	ignore = dirty
 [submodule "src/bleualign"]
 	path = src/bleualign
 	url = git@github.com:bitextor/bleualign-cpp.git
@@ -8,9 +9,12 @@
 [submodule "src/preprocess"]
 	path = src/preprocess
 	url = git@github.com:kpu/preprocess.git
+	ignore = dirty
 [submodule "tmxutil"]
 	path = src/tmxutil
 	url = git@github.com:paracrawl/tmxutil.git
+	ignore = dirty
 [submodule "src/marian-dev"]
 	path = src/marian-dev
 	url = git@github.com:marian-nmt/marian-dev.git
+	ignore = dirty
