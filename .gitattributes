@@ -1,0 +1,2 @@
+*.npz filter=lfs diff=lfs merge=lfs -text
+*.spm filter=lfs diff=lfs merge=lfs -text
