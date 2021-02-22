@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-marian-decoder \
+foldfilter -s -w 500 marian-decoder \
 	-c $(dirname $(realpath $0))/config.yml \
-	-d ${CUDA_VISIBLE_DEVICES//,/ }
+	-d ${CUDA_VISIBLE_DEVICES//,/ } \
+	--quiet-translation \
 	"$@"

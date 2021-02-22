@@ -1,27 +1,36 @@
 #!/bin/bash
-#SBATCH --account dc007
+#SBATCH --account t2-cs119-gpu
 #SBATCH --nodes 1
+#SBATCH --cpus-per-task 8
 #SBATCH --gres gpu:4
 #SBATCH --time 24:00:00
-#SBATCH --qos gpu
-#SBATCH --partition gpu-cascade,gpu-skylake
+#SBATCH --partition pascal
 set -eou pipefail
 
-PREFIX=$(dirname $(realpath $0))
+export PREFIX=$HOME/src/europat-scripts
 source $PREFIX/init.sh
 
 # How many bleualign?
-THREADS=${SLURM_CPUS_ON_NODE:-4}
+export THREADS=${SLURM_CPUS_ON_NODE:-4}
+export TMPSUF=${SLURM_JOB_ID:-$$}
 
-export SLANG=$1
+declare -a MODEL=("$1")
 shift
 
-if [[ -f $PREFIX/models/${SLANG}-en/translate.sh ]]; then
-	MODEL=$PREFIX/models/${SLANG}-en/translate.sh
-else
-	echo "Supported languages: de, fr" 1>&2
-	exit 1
-fi
+while [[ $# > 0 ]] && [[ $1 != -- ]]; do
+	MODEL=("${MODEL[@]}" "$1")
+	shift
+done
+shift # remove --
+
+# Check for software in path
+which marian-decoder \
+	b64filter \
+	bleualign_cpp \
+	foldfilter \
+	docenc \
+	pv \
+	parallel
 
 col () {
 	cut -d$'\t' -f$1
@@ -41,15 +50,7 @@ document_to_base64() {
 }
 
 translate () {
-	b64filter foldfilter -s -w 1000 $MODEL \
-		--quiet \
-		--beam-size 6 \
-		--normalize 1 \
-		--mini-batch 64 \
-		--maxi-batch 1000 \
-		--mini-batch-words 4000 \
-		--maxi-batch-sort src \
-		--workspace 8000
+	b64filter "$@"
 }
 
 buffer () {
@@ -80,36 +81,39 @@ align () {
 		-N 1 \
 		bleualign_cpp --bleu-threshold 0.2 \
 	| gzip \
-	> $(basename $file .tab)-aligned.gz.$$
-	mv $(basename $file .tab)-aligned.gz{.$$,}
+	> $(basename $file .tab)-aligned.gz.$TMPSUF
+	mv $(basename $file .tab)-aligned.gz{.$TMPSUF,}
 }
 
 for file in $*; do
 	n=$(cat $file | wc -l)
+	echo "model=${MODEL[@]}"
 	echo "$(basename $file): $n documents"
 
 	# Moved the translation column from paste out of the file substitution
 	# into stdin of paste so any errors here (because here is the most
 	# likely place for errors to happen) will cause the program to fail.
-	cat $file \
-	| col 2 \
-	| document_to_base64 \
-	| progress $n prep-$SLANG \
-	| buffer 512M \
-	| translate \
-	| progress $n translate \
-	| paste \
-		<(cat $file | col 1) \
-		<(cat $file | col 3) \
-		<(cat $file | col 2 | document_to_base64) \
-		<(cat $file | col 4 | document_to_base64) \
-		- \
-		<(cat $file | col 4 | document_to_base64 | progress $n prep-en | buffer 512M) \
-	| progress $n write \
-	| gzip -9c \
-	> $(basename $file .tab)-bleualign-input.tab.gz.$$
-	
-	mv $(basename $file .tab)-bleualign-input.tab.gz{.$$,}
+	if [ ! -f $(basename $file .tab)-bleualign-input.tab.gz ]; then
+		cat $file \
+		| col 2 \
+		| document_to_base64 \
+		| progress $n prep \
+		| buffer 512M \
+		| translate "${MODEL[@]}" \
+		| progress $n translate \
+		| paste \
+			<(cat $file | col 1) \
+			<(cat $file | col 3) \
+			<(cat $file | col 2 | document_to_base64) \
+			<(cat $file | col 4 | document_to_base64) \
+			- \
+			<(cat $file | col 4 | document_to_base64 | progress $n prep-en | buffer 512M) \
+		| progress $n write \
+		| gzip -9c \
+		> $(basename $file .tab)-bleualign-input.tab.gz.$TMPSUF
+		
+		mv $(basename $file .tab)-bleualign-input.tab.gz{.$TMPSUF,}
+	fi
 
 	# Run align in the background we dont want to wait for it
 	align $file &

@@ -10,4 +10,4 @@ mini-batch: 64
 maxi-batch-sort: src
 maxi-batch: 100
 max-length-factor: 2.5
-workspace: 8000
+workspace: 12000
