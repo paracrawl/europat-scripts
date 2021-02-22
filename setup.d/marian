@@ -39,6 +39,13 @@ install() {
 		)
 	fi
 
+	if [[ $(hostname -A) =~ "hpc.cam.ac.uk" ]]; then
+		MARIAN_OPTIONS=(
+			${MARIAN_OPTIONS[@]}
+			-DBUILD_ARCH=broadwell
+		)
+	fi
+
 	cmake .. ${MARIAN_OPTIONS[@]}
 
 	make -j8 marian_decoder marian_conv
