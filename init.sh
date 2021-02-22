@@ -20,7 +20,6 @@ if [[ "$(hostname -A)" =~ "hpc.cam.ac.uk" ]]; then
 		cuda/10.2 `# Marian doesn't support 11 properly yet`
 fi
 
-export PREFIX=$(dirname $(realpath $0))
-BINDIR=$PREFIX/bin
-export PATH=$BINDIR:$PATH
+export PREFIX=${PREFIX:-$(dirname $(realpath $0))}
+export PATH=$PREFIX/bin:$PATH
 
