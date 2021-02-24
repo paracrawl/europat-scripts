@@ -1,0 +1,13 @@
+#!/bin/bash
+
+is-installed() {
+	test -f $PREFIX/bin/parallel
+}
+
+depends() {
+	echo env
+}
+
+install() {
+	ln -s $(which parallel) $PREFIX/bin/parallel
+}

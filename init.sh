@@ -8,6 +8,10 @@ if [[ "$(hostname)" =~ "cirrus" ]]; then
 		java/jdk-14.0.1
 fi
 
+# Note: This doesn't actually run on compute nodes on CSD3 so its a bi
+# useless. But only a bit, it still runs properly when you're compiling
+# stuff on the login node and that's helpful. So as a work-around we'll
+# just symlink parallel into our environment.
 if [[ "$(hostname -A)" =~ "hpc.cam.ac.uk" ]]; then
 	module purge && module load \
 		rhel7/global \
