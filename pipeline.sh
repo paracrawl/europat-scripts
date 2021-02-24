@@ -135,16 +135,14 @@ for file in $*; do
 			<(cat $file | col 4 | lowercase | document_to_base64 | buffer 512M) \
 		| progress $n write \
 		| gzip -9c \
-		> $(basename $file .tab)-bleualign-input.tab.gz.$TMPSUF
-		
-		mv $(basename $file .tab)-bleualign-input.tab.gz{.$TMPSUF,}
-	fi
-
-	# Run align in the background we dont want to wait for it
-	if [ ! -f $(basename $file .tab)-aligned.gz ]; then
+		> $(basename $file .tab)-bleualign-input.tab.gz.$TMPSUF \
+		&& mv $(basename $file .tab)-bleualign-input.tab.gz{.$TMPSUF,}
+	fi \
+	&& if [ ! -f $(basename $file .tab)-aligned.gz ]; then
 		#align $file &
 		echo $file >&3
-	fi
+	fi \
+	|| true # In case of failure, do continue with the next file
 done
 
 echo "" >&3
