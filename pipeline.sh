@@ -49,6 +49,10 @@ document_to_base64() {
 	| docenc -0
 }
 
+lowercase() {
+	sed -e 's/./\L\0/g'
+}
+
 translate () {
 	b64filter "$@"
 }
@@ -77,6 +81,7 @@ align () {
 		--halt 2 \
 		--pipe \
 		--roundrobin \
+		--linebuffer \
 		-j $THREADS \
 		-N 1 \
 		bleualign_cpp --bleu-threshold 0.2 \
@@ -84,6 +89,25 @@ align () {
 	> $(basename $file .tab)-aligned.gz.$TMPSUF
 	mv $(basename $file .tab)-aligned.gz{.$TMPSUF,}
 }
+
+align_worker () {
+	while read file; do
+		if [ -z "$file" ]; then
+			break
+		fi
+
+		echo aligning $file
+		align $file
+	done
+	return 0
+}
+
+PIPE=$(mktemp -u)
+mkfifo $PIPE
+exec 3<>$PIPE
+rm $PIPE
+
+(align_worker <&3) &
 
 for file in $*; do
 	n=$(cat $file | wc -l)
@@ -96,6 +120,7 @@ for file in $*; do
 	if [ ! -f $(basename $file .tab)-bleualign-input.tab.gz ]; then
 		cat $file \
 		| col 2 \
+		| lowercase \
 		| document_to_base64 \
 		| progress $n prep \
 		| buffer 512M \
@@ -107,7 +132,7 @@ for file in $*; do
 			<(cat $file | col 2 | document_to_base64) \
 			<(cat $file | col 4 | document_to_base64) \
 			- \
-			<(cat $file | col 4 | document_to_base64 | progress $n prep-en | buffer 512M) \
+			<(cat $file | col 4 | lowercase | document_to_base64 | buffer 512M) \
 		| progress $n write \
 		| gzip -9c \
 		> $(basename $file .tab)-bleualign-input.tab.gz.$TMPSUF
@@ -116,8 +141,14 @@ for file in $*; do
 	fi
 
 	# Run align in the background we dont want to wait for it
-	align $file &
+	if [ ! -f $(basename $file .tab)-aligned.gz ]; then
+		#align $file &
+		echo $file >&3
+	fi
 done
+
+echo "" >&3
+exec 3>&-
 
 echo "Waiting on alignment to finish"
 wait
