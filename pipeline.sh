@@ -49,6 +49,15 @@ document_to_base64() {
 	| docenc -0
 }
 
+preprocess() {
+	if [ ! -z "${LOWERCASE:-}" ]; then
+		echo "Preprocessing with lowercase" >&2
+		lowercase
+	else
+		cat
+	fi
+}
+
 lowercase() {
 	sed -e 's/./\L\0/g'
 }
@@ -120,7 +129,7 @@ for file in $*; do
 	if [ ! -f $(basename $file .tab)-bleualign-input.tab.gz ]; then
 		cat $file \
 		| col 2 \
-		| lowercase \
+		| preprocess \
 		| document_to_base64 \
 		| progress $n prep \
 		| buffer 512M \
@@ -132,7 +141,7 @@ for file in $*; do
 			<(cat $file | col 2 | document_to_base64) \
 			<(cat $file | col 4 | document_to_base64) \
 			- \
-			<(cat $file | col 4 | lowercase | document_to_base64 | buffer 512M) \
+			<(cat $file | col 4 | preprocess | document_to_base64 | buffer 512M) \
 		| progress $n write \
 		| gzip -9c \
 		> $(basename $file .tab)-bleualign-input.tab.gz.$TMPSUF \
