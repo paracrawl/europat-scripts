@@ -1,6 +1,7 @@
 #! /bin/bash
 
 # ./match.sh NO 2018 2019 | more
+# ./match.sh PL 1980 2020 title | more
 
 # exit on the first error
 set -e
@@ -12,10 +13,11 @@ set -e
 COUNTRY=${1:-HR}
 YEAR_START=${2:-1980}
 YEAR_END=${3:-${2:-2020}}
+FIELD=${4}
 
 SCRIPTDIR="${HOME}/tmp"
 FAMILYDIR="${FAMILYDIR:-/fs/bil0/europat/family}"
-INFODIR="${INFODIR:-/fs/loki0/data/pdfpatents}"
+INFODIR="${INFODIR:-/data/patents/pdfpatents}"
 
 # "catch exit status 1" grep wrapper
 c1grep() { grep "$@" || test $? = 1; }
@@ -33,6 +35,7 @@ done
 
 YEARS="year"
 TOTALS="total"
+SINGLEFIELDPATTERN='^[^[:space:]]+'
 FIELDPATTERN='^[^[:space:]]+\t[^[:space:]]+\t[^[:space:]]+\t[^[:space:]]+'
 PDFPATTERN='\t[^[:space:]]+$'
 for (( YEAR="${YEAR_START}"; YEAR<="${YEAR_END}"; YEAR++ ))
@@ -48,7 +51,28 @@ do
             if [[ ! -z "${YEARS}" ]]; then
                 YEARS="${YEARS}\t${MATCHYEAR}"
             fi
-            if [[ -z "${COUNT_PDFS}" ]]; then
+            if [[ ! -z "${FIELD}" ]]; then
+                # find matches for a specific field
+                case "${FIELD}" in
+                    "title")
+                        INDEX=4
+                        ;;
+                    "abstract")
+                        INDEX=5
+                        ;;
+                    "claims")
+                        INDEX=6
+                        ;;
+                    "description")
+                        INDEX=7
+                        ;;
+                    *)
+                        echo -e "Unknown field ${FIELD}"
+                        exit 1
+                        ;;
+                esac
+                COUNT=`c1grep -F -f "${MATCHFILE}" "${INFOFILE}" | cut -f"${INDEX}" | c1grep -cP "${SINGLEFIELDPATTERN}"`
+            elif [[ -z "${COUNT_PDFS}" ]]; then
                 COUNT=`c1grep -cF -f "${MATCHFILE}" "${INFOFILE}"`
             else
                 # find rows with a missing text field and with PDFs available
