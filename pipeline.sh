@@ -95,44 +95,85 @@ align () {
 		-N 1 \
 		bleualign_cpp --bleu-threshold 0.2 \
 	| gzip \
-	> $(basename $file .tab)-aligned.gz.$TMPSUF
-	mv $(basename $file .tab)-aligned.gz{.$TMPSUF,}
+	> $(basename $file .tab)-aligned.gz.$TMPSUF \
+	&& mv $(basename $file .tab)-aligned.gz{.$TMPSUF,}
 }
 
 align_worker () {
+	set -euo pipefail
+	echo Started align worker >&2
 	while read file; do
 		if [ -z "$file" ]; then
+			echo "Received stop signal" >&2
 			break
 		fi
-
-		echo aligning $file
-		align $file
+		echo "Aligning $file" >&2
+		if ! align $file ; then
+			echo "Aligning $file failed!" >&2
+		fi
 	done
+	echo Align worker done >&2
 	return 0
 }
 
-PIPE=$(mktemp -u)
-mkfifo $PIPE
-exec 3<>$PIPE
-rm $PIPE
+if [ "${ALIGN_IN_BACKGROUND:-1}" -gt 0 ]; then
+	# Set up fifo pipe used as file queue
+	pipe=$(mktemp -u)
+	mkfifo $pipe
+	exec 3<>$pipe
+	rm $pipe
+	
+	# Start worker
+	align_worker <&3 &
+	PID=$!
+	echo Started align worker $PID >&2
 
-(align_worker <&3) &
+	# make sure we kill align worker when we get asked to stop.
+	trap "kill -9 -- $PID \$(ps -o pid --no-headers --ppid $PID)" INT TERM
+
+	# Call that's used when a file is ready to be aligned
+	align_queue () {
+		echo "Queueing $1" >&2
+		echo $1 >&3
+	}
+
+	align_join() {
+		# Send stop signal to worker
+		echo "" >&3
+		exec 3>&-
+		# Wait for worker to exit
+		echo "waiting on alignment to finish on $PID"
+		wait $PID
+	}
+else
+	# Just align immediately here and now
+	align_queue () {
+		echo "Aligning $1" >&2
+		align $1
+	}
+
+	align_join() {
+		:
+	}
+fi
+
 
 for file in $*; do
-	n=$(cat $file | wc -l)
 	echo "model=${MODEL[@]}"
-	echo "$(basename $file): $n documents"
 
-	# Moved the translation column from paste out of the file substitution
+	# moved the translation column from paste out of the file substitution
 	# into stdin of paste so any errors here (because here is the most
 	# likely place for errors to happen) will cause the program to fail.
 	if [ ! -f $(basename $file .tab)-bleualign-input.tab.gz ]; then
+		n=$(cat $file | wc -l)
+		echo "$(basename $file): $n documents"
+
 		cat $file \
 		| col 2 \
 		| preprocess \
 		| document_to_base64 \
-		| progress $n prep \
-		| buffer 512M \
+		| tee >(gzip -c > $(basename $file .tab)-translate-input.gz) \
+		| buffer 512m \
 		| translate "${MODEL[@]}" \
 		| progress $n translate \
 		| paste \
@@ -141,22 +182,24 @@ for file in $*; do
 			<(cat $file | col 2 | document_to_base64) \
 			<(cat $file | col 4 | document_to_base64) \
 			- \
-			<(cat $file | col 4 | preprocess | document_to_base64 | buffer 512M) \
+			<(cat $file | col 4 | preprocess | document_to_base64 | buffer 512m) \
 		| progress $n write \
 		| gzip -9c \
 		> $(basename $file .tab)-bleualign-input.tab.gz.$TMPSUF \
 		&& mv $(basename $file .tab)-bleualign-input.tab.gz{.$TMPSUF,}
+	else
+		echo "$file already translated" >&2
 	fi \
 	&& if [ ! -f $(basename $file .tab)-aligned.gz ]; then
-		#align $file &
-		echo $file >&3
+		if [ "${ALIGN:-1}" -gt 0 ]; then
+			align_queue $file
+		fi
+	else
+		echo "$file already aligned" >&2
 	fi \
-	|| true # In case of failure, do continue with the next file
+	|| true # in case of failure, do continue with the next file
 done
 
-echo "" >&3
-exec 3>&-
+align_join
 
-echo "Waiting on alignment to finish"
-wait
-echo "Done."
+echo "Done" >&2
