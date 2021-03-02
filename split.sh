@@ -6,7 +6,7 @@ N=${N:-4}
 for file in "$@"; do
 	name=$(basename $file .tab)
 	split \
-		--number=r/$N \
+		--number=l/$N \
 		--additional-suffix=.tab \
 		--numeric-suffixes \
 		--suffix-length=1 \
