@@ -26,4 +26,4 @@ fi
 
 export PREFIX=${PREFIX:-$(dirname $(realpath $0))}
 export PATH=$PREFIX/bin:$PATH
-
+PS1="(europat) [\u@\h \W]\$ "
