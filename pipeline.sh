@@ -7,9 +7,17 @@
 #SBATCH --partition pascal
 set -eou pipefail
 
+# Args:
+#	translation-script
+#	--
+#	
+# USAGE
+# >>> pipeline.sh es path/to/models/translate.sh -- paired_data/en-es/ES-EN-${YEAR}-*.tab
+#
 export PREFIX=$HOME/src/europat-scripts
 source $PREFIX/init.sh
-
+export LANGUAGE="${1:-es}"
+shift
 # How many bleualign?
 export THREADS=${SLURM_CPUS_ON_NODE:-4}
 export TMPSUF=${SLURM_JOB_ID:-$$}
@@ -18,7 +26,7 @@ declare -a MODEL=("$1")
 shift
 
 while [[ $# > 0 ]] && [[ $1 != -- ]]; do
-	MODEL=("${MODEL[@]}" "$1")
+	MODEL+=("$1")
 	shift
 done
 shift # remove --
@@ -29,6 +37,7 @@ which marian-decoder \
 	bleualign_cpp \
 	foldfilter \
 	docenc \
+	process_unicode \
 	pv \
 	parallel
 
@@ -57,11 +66,29 @@ preprocess() {
 		cat
 	fi
 }
-
+simplify(){
+	if [ -z "${REMOVE_PUNCTUATION:-}" ]; then
+		echo "Removing punctuation" >&2
+		b64filter remove_puncutation
+	else
+		cat
+	fi
+}
 lowercase() {
 	sed -e 's/./\L\0/g'
 }
-
+lowercase_kenneth() {
+	if [ "$LANGUAGE" != "pl" ]; then
+		process_unicode -l "$LANGUAGE" --lower #--flatten --normalize --lower
+	else
+		sed -e 's/./\L\0/g'
+	fi
+}
+remove_punctuation(){
+	# use sed to avoid removing \n and/or <br></br>
+	sed 's/[].!?,|~'\''"()[&£$@%^*]//g'
+	#tr -d '[:punct:]'
+}
 translate () {
 	b64filter "$@"
 }
@@ -164,9 +191,7 @@ for file in $*; do
 	# moved the translation column from paste out of the file substitution
 	# into stdin of paste so any errors here (because here is the most
 	# likely place for errors to happen) will cause the program to fail.
-	if [ ! -f $(basename $file .tab)-bleualign-input.tab.gz ]; then
-		n=$(cat $file | wc -l)
-		echo "$(basename $file): $n documents"
+	if [ ! -f $(basename $file .tab)-translated.gz ]; then
 
 		cat $file \
 		| col 2 \
@@ -176,19 +201,30 @@ for file in $*; do
 		| buffer 512m \
 		| translate "${MODEL[@]}" \
 		| progress $n translate \
+		| gzip -9c \
+		> $(basename $file .tab)-translated.gz.$TMPSUF \
+		&& mv $(basename $file .tab)-translated.gz{.$TMPSUF,}
+	else
+		echo "$file already translated" >&2
+	fi \	
+	&& if [ ! -f $(basename $file .tab)-bleualign-input.tab.gz ]; then
+		n=$(cat $file | wc -l)
+		echo "$(basename $file): $n documents"
+		zcat $(basename $file .tab)-translated.gz \
+		| simplify \
 		| paste \
 			<(cat $file | col 1) \
 			<(cat $file | col 3) \
 			<(cat $file | col 2 | document_to_base64) \
 			<(cat $file | col 4 | document_to_base64) \
 			- \
-			<(cat $file | col 4 | preprocess | document_to_base64 | buffer 512m) \
+			<(cat $file | col 4 | preprocess | simplify | document_to_base64 | buffer 512m) \
 		| progress $n write \
 		| gzip -9c \
 		> $(basename $file .tab)-bleualign-input.tab.gz.$TMPSUF \
 		&& mv $(basename $file .tab)-bleualign-input.tab.gz{.$TMPSUF,}
 	else
-		echo "$file already translated" >&2
+		echo "$file already has bleualign input file" >&2
 	fi \
 	&& if [ ! -f $(basename $file .tab)-aligned.gz ]; then
 		if [ "${ALIGN:-1}" -gt 0 ]; then
