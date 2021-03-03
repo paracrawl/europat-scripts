@@ -1,7 +1,7 @@
 #!/bin/bash
 
 is-installed() {
-	test -e $PREFIX/bin/mvn
+	test -L $PREFIX/bin/mvn
 }
 
 depends() {
@@ -11,7 +11,7 @@ depends() {
 install() {
 	test -d apache-maven-3.6.3 || curl -L https://mirrors.gethosted.online/apache/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz | tar -zx
 	pushd apache-maven-3.6.3
-	ln -s $PREFIX/apache-maven-3.6.3/bin/mvn $PREFIX/bin/mvn
+	ln -s $PREFIX/src/apache-maven-3.6.3/bin/mvn $PREFIX/bin/mvn
 	popd
 }
 
