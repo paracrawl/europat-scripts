@@ -69,7 +69,7 @@ preprocess() {
 simplify(){
 	if [ -z "${REMOVE_PUNCTUATION:-}" ]; then
 		echo "Removing punctuation" >&2
-		b64filter remove_puncutation
+		remove_puncutation
 	else
 		cat
 	fi
@@ -211,7 +211,7 @@ for file in $*; do
 		n=$(cat $file | wc -l)
 		echo "$(basename $file): $n documents"
 		zcat $(basename $file .tab)-translated.gz \
-		| simplify \
+		| b64filter simplify \
 		| paste \
 			<(cat $file | col 1) \
 			<(cat $file | col 3) \
