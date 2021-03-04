@@ -55,24 +55,25 @@ document_to_base64() {
 	| sed -r 's/$/\x0/g' \
 	| sed -r 's/<br\/>|<\/p><p>/\n/g' \
 	| sed -r 's/<\/?p>//g' \
+	| sed -e :a -e '/^\n*$/{$d;N;};/\n$/ba' \
 	| docenc -0
 }
 
 preprocess() {
-	if [ ! -z "${LOWERCASE:-}" ]; then
-		echo "Preprocessing with lowercase" >&2
+#	if [ ! -z "${LOWERCASE:-}" ]; then
+#		echo "Preprocessing with lowercase" >&2
 		lowercase
-	else
-		cat
-	fi
+#	else
+#		cat
+#	fi
 }
 simplify(){
-	if [ -z "${REMOVE_PUNCTUATION:-}" ]; then
-		echo "Removing punctuation" >&2
+#	if [ -z "${REMOVE_PUNCTUATION:-}" ]; then
+#		echo "Removing punctuation" >&2
 		remove_punctuation
-	else
-		cat
-	fi
+#	else
+#		cat
+#	fi
 }
 lowercase() {
 	sed -e 's/./\L\0/g'
@@ -213,7 +214,8 @@ for file in $*; do
 		| docenc -d \
 		| preprocess \
 		| simplify \
-		| docenc \
+		| sed -e :a -e '/^\n*$/{$d;N;};/\n$/ba' \
+		| document_to_base64 \ # base64 \ #docenc \
 		| paste \
 			<(cat $file | col 1) \
 			<(cat $file | col 3) \
