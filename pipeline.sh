@@ -14,7 +14,7 @@ set -eou pipefail
 # USAGE
 # >>> pipeline.sh es path/to/models/translate.sh -- paired_data/en-es/ES-EN-${YEAR}-*.tab
 #
-export PREFIX=$HOME/src/europat-scripts
+export PREFIX=$HOME/sw/europat-scripts
 source $PREFIX/init.sh
 export LANGUAGE="${1:-es}"
 shift
@@ -200,14 +200,13 @@ for file in $*; do
 		| tee >(gzip -c > $(basename $file .tab)-translate-input.gz) \
 		| buffer 512m \
 		| translate "${MODEL[@]}" \
-		| progress $n translate \
 		| gzip -9c \
 		> $(basename $file .tab)-translated.gz.$TMPSUF \
 		&& mv $(basename $file .tab)-translated.gz{.$TMPSUF,}
 	else
 		echo "$file already translated" >&2
-	fi \	
-	&& if [ ! -f $(basename $file .tab)-bleualign-input.tab.gz ]; then
+	fi &&
+	if [ ! -f $(basename $file .tab)-bleualign-input.tab.gz ]; then
 		n=$(cat $file | wc -l)
 		echo "$(basename $file): $n documents"
 		zcat $(basename $file .tab)-translated.gz \
@@ -222,21 +221,19 @@ for file in $*; do
 			<(cat $file | col 4 | document_to_base64) \
 			- \
 			<(cat $file | col 4 | preprocess | simplify | document_to_base64 | buffer 512m) \
-		| progress $n write \
 		| gzip -9c \
 		> $(basename $file .tab)-bleualign-input.tab.gz.$TMPSUF \
 		&& mv $(basename $file .tab)-bleualign-input.tab.gz{.$TMPSUF,}
 	else
 		echo "$file already has bleualign input file" >&2
-	fi \
-	&& if [ ! -f $(basename $file .tab)-aligned.gz ]; then
+	fi &&
+	if [ ! -f $(basename $file .tab)-aligned.gz ]; then
 		if [ "${ALIGN:-1}" -gt 0 ]; then
 			align_queue $file
 		fi
 	else
 		echo "$file already aligned" >&2
-	fi \
-	|| true # in case of failure, do continue with the next file
+	fi || true # in case of failure, do continue with the next file
 done
 
 align_join
