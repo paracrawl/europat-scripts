@@ -1,10 +1,9 @@
 #!/bin/bash
-#SBATCH --account t2-cs119-gpu
+#SBATCH --account t2-cs119-cpu
 #SBATCH --nodes 1
-#SBATCH --cpus-per-task 8
-#SBATCH --gres gpu:4
+#SBATCH --cpus-per-task 4
 #SBATCH --time 24:00:00
-#SBATCH --partition pascal
+#SBATCH --partition skylake 
 set -eou pipefail
 
 # Args:
@@ -55,6 +54,7 @@ document_to_base64() {
 	| sed -r 's/$/\x0/g' \
 	| sed -r 's/<br\/>|<\/p><p>/\n/g' \
 	| sed -r 's/<\/?p>//g' \
+	| sed -e :a -e '/^\n*$/{$d;N;};/\n$/ba' \
 	| docenc -0
 }
 
@@ -75,13 +75,13 @@ simplify(){
 #	fi
 }
 lowercase() {
-	sed -e 's/.*/\L\0/g'
+	sed -e 's/./\L\0/g'
 }
 lowercase_kenneth() {
 	if [ "$LANGUAGE" != "pl" ]; then
 		process_unicode -l "$LANGUAGE" --lower #--flatten --normalize --lower
 	else
-		sed -e 's/.*/\L\0/g'
+		sed -e 's/./\L\0/g'
 	fi
 }
 remove_punctuation(){
@@ -112,7 +112,7 @@ progress() {
 
 align () {
 	local file=$1
-	gzip -cd $(basename $file .tab)-bleualign-input.tab.gz \
+	cat $file \
 	| parallel \
 		--halt 2 \
 		--pipe \
@@ -121,9 +121,8 @@ align () {
 		-j $THREADS \
 		-N 1 \
 		bleualign_cpp --bleu-threshold 0.2 \
-	| gzip \
-	> $(basename $file .tab)-aligned.gz.$TMPSUF \
-	&& mv $(basename $file .tab)-aligned.gz{.$TMPSUF,}
+	>$(basename $file .tab)-aligned.$TMPSUF \
+	&& mv $(basename $file .tab)-aligned{.$TMPSUF,}
 }
 
 align_worker () {
@@ -190,45 +189,6 @@ fi
 
 
 for file in $*; do
-	echo "model=${MODEL[@]}"
-
-	# moved the translation column from paste out of the file substitution
-	# into stdin of paste so any errors here (because here is the most
-	# likely place for errors to happen) will cause the program to fail.
-	if [ ! -f $(basename $file .tab)-translated.gz ]; then
-
-		cat $file \
-		| col 2 \
-		| preprocess \
-		| document_to_base64 \
-		| tee >(gzip -c > $(basename $file .tab)-translate-input.gz) \
-		| buffer 512m \
-		| translate "${MODEL[@]}" \
-		| gzip -9c \
-		> $(basename $file .tab)-translated.gz.$TMPSUF \
-		&& mv $(basename $file .tab)-translated.gz{.$TMPSUF,}
-	else
-		echo "$file already translated" >&2
-	fi &&
-	if [ ! -f $(basename $file .tab)-bleualign-input.tab.gz ]; then
-		n=$(cat $file | wc -l)
-		echo "$(basename $file): $n documents"
-		zcat $(basename $file .tab)-translated.gz \
-		| b64filter bash -c lowercase \ #preprocess \
-		| b64filter bash -c remove_punctuation \ #simplify \
-		| paste \
-			<(cat $file | col 1) \
-			<(cat $file | col 3) \
-			<(cat $file | col 2 | document_to_base64) \
-			<(cat $file | col 4 | document_to_base64) \
-			- \
-			<(cat $file | col 4 | preprocess | simplify | document_to_base64 | buffer 512m) \
-		| gzip -9c \
-		> $(basename $file .tab)-bleualign-input.tab.gz.$TMPSUF \
-		&& mv $(basename $file .tab)-bleualign-input.tab.gz{.$TMPSUF,}
-	else
-		echo "$file already has bleualign input file" >&2
-	fi &&
 	if [ ! -f $(basename $file .tab)-aligned.gz ]; then
 		if [ "${ALIGN:-1}" -gt 0 ]; then
 			align_queue $file

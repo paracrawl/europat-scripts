@@ -1,10 +1,9 @@
 #!/bin/bash
-#SBATCH --account t2-cs119-gpu
+#SBATCH --account t2-cs119-cpu
 #SBATCH --nodes 1
-#SBATCH --cpus-per-task 8
-#SBATCH --gres gpu:4
+#SBATCH --cpus-per-task 4
 #SBATCH --time 24:00:00
-#SBATCH --partition pascal
+#SBATCH --partition skylake 
 set -eou pipefail
 
 # Args:
@@ -75,13 +74,13 @@ simplify(){
 #	fi
 }
 lowercase() {
-	sed -e 's/.*/\L\0/g'
+	sed -e 's/./\L\0/g'
 }
 lowercase_kenneth() {
 	if [ "$LANGUAGE" != "pl" ]; then
 		process_unicode -l "$LANGUAGE" --lower #--flatten --normalize --lower
 	else
-		sed -e 's/.*/\L\0/g'
+		sed -e 's/./\L\0/g'
 	fi
 }
 remove_punctuation(){
@@ -197,16 +196,17 @@ for file in $*; do
 	# likely place for errors to happen) will cause the program to fail.
 	if [ ! -f $(basename $file .tab)-translated.gz ]; then
 
-		cat $file \
-		| col 2 \
-		| preprocess \
-		| document_to_base64 \
-		| tee >(gzip -c > $(basename $file .tab)-translate-input.gz) \
-		| buffer 512m \
-		| translate "${MODEL[@]}" \
-		| gzip -9c \
-		> $(basename $file .tab)-translated.gz.$TMPSUF \
-		&& mv $(basename $file .tab)-translated.gz{.$TMPSUF,}
+#		cat $file \
+#		| col 2 \
+#		| preprocess \
+#		| document_to_base64 \
+#		| tee >(gzip -c > $(basename $file .tab)-translate-input.gz) \
+#		| buffer 512m \
+#		| translate "${MODEL[@]}" \
+#		| gzip -9c \
+#		> $(basename $file .tab)-translated.gz.$TMPSUF \
+#		&& mv $(basename $file .tab)-translated.gz{.$TMPSUF,}
+		echo "Skipping translation - cpu script is only for alignment" >&2
 	else
 		echo "$file already translated" >&2
 	fi &&
