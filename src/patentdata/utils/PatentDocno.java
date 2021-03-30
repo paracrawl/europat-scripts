@@ -11,6 +11,7 @@ public class PatentDocno {
 	public String  kind = "";
 	public String  date = "";
 	public String  familyid = "";
+	public String  lang = "";
 	
 	public List<String> ipc = new ArrayList<String>();
 	public List<String> ipcr = new ArrayList<String>();

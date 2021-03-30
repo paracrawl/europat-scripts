@@ -46,6 +46,14 @@ public class Config {
 		_config.DbUser = common.getJSONValue(json, "DbUser");
 		_config.DbPassword = common.getJSONValue(json, "DbPassword");
 		_config.CCPath = common.getJSONValue(json, "CCPath");
+		_config.SourceFilePath = common.getJSONValue(json, "SourceFilePath");
+		_config.TargetFilePath = common.getJSONValue(json, "TargetFilePath");
+		_config.Log4jXMLPath = common.getJSONValue(json, "Log4jXMLPath");
+		_config.DebugLogPath = common.getJSONValue(json, "DebugLogPath");
+		_config.UnicodePath = common.getJSONValue(json, "UnicodePath");
+		_config.SrxFilePath = common.getJSONValue(json, "SrxFilePath");
+		_config.BinSegmentPath = common.getJSONValue(json, "BinSegmentPath");
+		_config.AsciiUnicodePath = common.getJSONValue(json, "AsciiUnicodePath");
 	}
 
 	public void updateToken(String newToken) {
@@ -79,6 +87,14 @@ public class Config {
 		public String DbUser = "";
 		public String DbPassword = "";
 		public String CCPath = "";
+		public String SourceFilePath = "";
+		public String TargetFilePath = "";
+		public String Log4jXMLPath = "";
+		public String DebugLogPath = "";
+		public String UnicodePath = "";
+		public String SrxFilePath = "";
+		public String BinSegmentPath = "";
+		public String AsciiUnicodePath = "";
 	}
 
 }
