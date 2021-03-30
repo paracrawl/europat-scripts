@@ -1,5 +1,7 @@
 package patentdata.utils;
 
+import java.util.HashMap;
+
 public class DocumentVO {
 	String sLang;
 	String sCountry;
@@ -10,7 +12,14 @@ public class DocumentVO {
 	String sId;
 	String sFileName;
 	String sDtdVersion;
-	
+	String sApplicationId;
+	String sCorectionCode;
+	String sDateApplication;
+	String sIPC;
+	HashMap<String, String> title;
+	HashMap<String, String> abstracttext;
+	HashMap<String, String> claim;
+	HashMap<String, String> description;
 	
 	public String getsLang() {
 		return sLang;
@@ -70,6 +79,57 @@ public class DocumentVO {
 	}
 	public void setsDtdVersion(String sDtdVersion) {
 		this.sDtdVersion = sDtdVersion;
+	}
+	public String getsApplicationId() {
+		return sApplicationId;
+	}
+	public void setsApplicationId(String sApplicationId) {
+		this.sApplicationId = sApplicationId;
+	}
+	public void setsPatentId(String sPatentId) {
+		this.sPatentId = sPatentId;
+	}
+	public String getsCorectionCode() {
+		return sCorectionCode;
+	}
+	public void setsCorectionCode(String sCorectionCode) {
+		this.sCorectionCode = sCorectionCode;
+	}
+	public HashMap<String, String> getTitle() {
+		return title;
+	}
+	public void setTitle(HashMap<String, String> title) {
+		this.title = title;
+	}
+	public HashMap<String, String> getAbstracttext() {
+		return abstracttext;
+	}
+	public void setAbstracttext(HashMap<String, String> abstracttext) {
+		this.abstracttext = abstracttext;
+	}
+	public HashMap<String, String> getClaim() {
+		return claim;
+	}
+	public void setClaim(HashMap<String, String> claim) {
+		this.claim = claim;
+	}
+	public HashMap<String, String> getDescription() {
+		return description;
+	}
+	public void setDescription(HashMap<String, String> description) {
+		this.description = description;
+	}
+	public String getsDateApplication() {
+		return sDateApplication;
+	}
+	public void setsDateApplication(String sDateApplication) {
+		this.sDateApplication = sDateApplication;
+	}
+	public String getsIPC() {
+		return sIPC;
+	}
+	public void setsIPC(String sIPC) {
+		this.sIPC = sIPC;
 	}
 	
 	

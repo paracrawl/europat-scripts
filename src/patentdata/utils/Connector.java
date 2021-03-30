@@ -31,13 +31,17 @@ public class Connector {
 	protected Common common = new Common();
 	protected Config config = null;
 	protected ConfigInfo configInfo = null;
-	protected Log log = null;
+	protected LogFourJ log = null;
 
-	public Connector(Config config) throws Exception {
+	private Connector(Config config) throws Exception {
+	}
+	
+	
+	public Connector(Config config, LogFourJ log) throws Exception {
 		this.config = config;
 		configInfo = config._config;
-
-		log = new Log(configInfo.WorkingDir);
+		this.log = log;
+		
 	}
 
 	/* HTTP */
@@ -53,9 +57,9 @@ public class Connector {
 
 			HttpClient client = HttpClients.createDefault();
 			response = client.execute(request);
-			log.print(String.format("%s : %s", response.getStatusLine(), url));
+			log.writeDebugLog(String.format("%s : %s", response.getStatusLine(), url));
 		} catch (Exception e) {
-			log.printErr(e);
+			log.writeError("goTo", e);
 			throw e;
 		}
 		return response;
@@ -82,11 +86,11 @@ public class Connector {
 			response = client.execute(request);
 
 			String output = toString(response.getEntity().getContent());
-
+//			log.print("getToken:: " + output);
 			JSONObject jToken = common.getJSONObject(output);
 			config.updateToken(common.getJSONValue(jToken, "access_token"));
 		} catch (Exception e) {
-			log.printErr(e);
+			log.writeError("getToken", e);
 			throw e;
 		} finally {
 			response.close();
@@ -106,12 +110,12 @@ public class Connector {
 				String sJdbc = configInfo.Jdbc;
 				String sDriver = configInfo.DbDriver;// ("com.mysql.cj.jdbc.Driver");
 				StringBuilder sbUrl = new StringBuilder(sJdbc).append("://").append(configInfo.DbHost).append(":")
-						.append(configInfo.DbPort).append("/").append(configInfo.DbSchema);
+						.append(configInfo.DbPort).append("/").append(configInfo.DbSchema).append("?useUnicode=true&characterEncoding=utf-8");
 				Class.forName(sDriver);
 				con = DriverManager.getConnection(sbUrl.toString(), configInfo.DbUser, configInfo.DbPassword);
 			}
 		} catch (Exception e) {
-			log.printErr(e);
+			log.writeError("get", e);
 		}
 		return con;
 	}

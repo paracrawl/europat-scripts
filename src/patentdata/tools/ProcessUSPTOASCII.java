@@ -2,12 +2,10 @@ package patentdata.tools;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.Map.Entry;
 
@@ -17,15 +15,13 @@ import patentdata.utils.LogFourJ;
 import patentdata.utils.PatentData;
 import patentdata.utils.USPTOXml;
 
-public class ProcessUSPTO extends PatentData{
+public class ProcessUSPTOASCII extends PatentData{
 
-	private static String lineMarker = "<br/>";
-
-	public ProcessUSPTO(String path) throws Exception {
+	public ProcessUSPTOASCII(String path) throws Exception {
 		super(path);
 	}
 	
-	public ProcessUSPTO(String path, boolean bVerbose) throws Exception {
+	public ProcessUSPTOASCII(String path, boolean bVerbose) throws Exception {
 		super(path, bVerbose);
 	}
 	
@@ -36,7 +32,7 @@ public class ProcessUSPTO extends PatentData{
 //			/**
 //			 * Print out help
 //			 */
-////			printHelp();
+//			printHelp();
 //			System.exit(0);
 //
 //		}
@@ -80,7 +76,6 @@ public class ProcessUSPTO extends PatentData{
 	private String sClaims = "Claim";
 	private String sDescription = "Description";
 	private String sMetadata = "Metadata";
-	private String sPublDate = "";
 	private USPTOXml oXml = null;
 	private String tempDirectory = "";
 	private String outputDirectory = "";
@@ -181,13 +176,12 @@ public class ProcessUSPTO extends PatentData{
 		File inFile = new File(inputFilePath);
 		try {
 			StringBuilder sb = new StringBuilder("");
-			br = new BufferedReader(new InputStreamReader(new FileInputStream(inFile), "UTF-8"));
+			br = new BufferedReader(new FileReader(inFile));
 			String line;
-			int i = 0, nPatent = 1;
+			int i = 0, x = 1;
 			String marker = "";
 			while ((line = br.readLine()) != null) {
 
-//				System.out.println(line);
 				if (i == 0) {
 					if (line.trim().indexOf("<?xml ") > -1) {
 						marker = "<?xml ";
@@ -197,48 +191,32 @@ public class ProcessUSPTO extends PatentData{
 						marker = "PATN";
 
 						// not support
-//						break;
+						break;
 					}
 				}
 
 				if (i > 0 && line.trim().startsWith(marker)) {
 					// extract xml
 					String xml = sb.toString();
-//					System.out.println(nPatent + " xm1l: " + xml);
-					
-					if (!"PATN".equals(marker)) {
-						printLog.writeDebugLog("- start index1: " + nPatent);
-						Extract(xml);
-						printLog.writeDebugLog("- finish index1: " + nPatent);
-						sb = new StringBuilder("");
+					printLog.writeDebugLog("- start index: " + x);
+					Extract(xml);
+					printLog.writeDebugLog("- finish index: " + x);
 
-//					}else if (nPatent > 839 && nPatent < 1500){
-					}else if (xml.indexOf(marker) >= 0){
-//						xml = sHeaderPatent + xml;
-//						System.out.println(" xml2: " + nPatent + "\n" + xml);
-						printLog.writeDebugLog("- start index2: " + nPatent);
-						Extract(xml);
-						printLog.writeDebugLog("- finish index2: " + nPatent);
-						sb = new StringBuilder("");
-//						break;
-					}
-
-					nPatent++;
+					// reset
+					sb = new StringBuilder("");
+					x++;
 				}
 
-				if ("PATN".equals(marker))
-					sb.append(line+lineMarker);
-				else
-					sb.append(line);
+				sb.append(line);
 				i++;
 			}
 
 			if (sb.toString().length() > 0) {
 				// extract xml
 				String xml = sb.toString();
-				printLog.writeDebugLog("- start index: " + nPatent);
+				printLog.writeDebugLog("- start index: " + x);
 				Extract(xml);
-				printLog.writeDebugLog("- finish index: " + nPatent);
+				printLog.writeDebugLog("- finish index: " + x);
 
 				sb = new StringBuilder("");
 			}

@@ -23,14 +23,27 @@ public class PatentData {
 	protected Config config = null;
 	protected ConfigInfo configInfo = null;
 
-	protected Log log = null;
+//	protected Log log = null;
+	protected LogFourJ printLog = null;
 	protected Connector connector = null;
 
 	private void initial(String path) throws Exception {
 		try {
+			initial(path, false);
 		} catch (Exception e) {
 			throw new Exception("initial failed. " + e.getMessage());
 		}
+	}
+	
+	private void initial(String path, boolean bVerbose) throws Exception {
+		if (StringUtils.isEmpty(path))
+			path = common.getConfigPath();
+		config = new Config(path);
+		configInfo = config._config;
+
+//		log = new Log(configInfo.WorkingDir);
+		printLog = new LogFourJ(configInfo.Log4jXMLPath, configInfo.DebugLogPath, bVerbose);
+		connector = new Connector(config, printLog);
 	}
 
 	public PatentData() throws Exception {
@@ -38,6 +51,10 @@ public class PatentData {
 
 	public PatentData(String path) throws Exception {
 		initial(path);
+	}
+	
+	public PatentData(String path, boolean bVerbose) throws Exception {
+		initial(path, bVerbose);
 	}
 
 	public String SearchPatents(String service, String[] constituents, String datePattern, Date dateBegin, Date dateEnd,
@@ -59,7 +76,7 @@ public class PatentData {
 					.append(formatRange(rangeBegin, rangeEnd, "&Range="));
 			contents = getContent(new URL(formatUrl(sbLink.toString()) + "?q=" + sbCql.toString()));
 		} catch (Exception e) {
-			log.printErr(e, sbLink.toString());
+			printLog.writeError("SearchPatents", e);
 		}
 		return contents;
 	}
@@ -75,7 +92,7 @@ public class PatentData {
 				sbLink.append("/").append(String.join(",", constituents));
 			contents = getContent(formatUrl(sbLink.toString()));
 		} catch (Exception e) {
-			log.printErr(e, sbLink.toString());
+			printLog.writeError("ListFamily", e);
 		}
 		return contents;
 	}
@@ -94,7 +111,7 @@ public class PatentData {
 				sbLink.append("/").append(String.join(",", constituents));
 			contents = getContent(formatUrl(sbLink.toString()));
 		} catch (Exception e) {
-			log.printErr(e, sbLink.toString());
+			printLog.writeError("GetPatentsData", e);
 		}
 		return contents;
 	}
@@ -109,7 +126,7 @@ public class PatentData {
 					.append(String.join(",", documentNumber)).append("/").append(PUBLISHED_ENDPOINT.images);
 			contents = getContent(formatUrl(sbLink.toString()));
 		} catch (Exception e) {
-			log.printErr(e, sbLink.toString());
+			printLog.writeError("GetPatentsFileData", e);
 		}
 		return contents;
 	}
@@ -139,7 +156,7 @@ public class PatentData {
 				res = "downloaded failed";
 			}
 		} catch (Exception e) {
-			log.printErr(e, sbLink.toString());
+			printLog.writeError("DownloadPatentFile", e);
 		}
 		return res;
 	}
@@ -263,6 +280,7 @@ public class PatentData {
 	}
 
 	private String getContent(URL url) throws Exception {
+		printLog.writeDebugLog("Start::::::::::getContent:: \n" + url.toString());
 		HttpResponse httpResponse = connector.goTo(url.toString());
 		String output = connector.toString(httpResponse.getEntity().getContent());
 		if (HttpStatus.SC_OK != httpResponse.getStatusLine().getStatusCode()) {
@@ -270,13 +288,46 @@ public class PatentData {
 				connector.getToken();
 				output = connector.toString(connector.goTo(url.toString()).getEntity().getContent());
 			} else if (output.contains("<code>CLIENT.RobotDetected</code>")) {
-				Integer n = 3;
-				log.print(String.format("CLIENT.RobotDetected. Wait %d seconds to reconnect...", n));
+				Integer n = getRandomNumber(1, 15);
+				printLog.writeDebugLog(String.format("CLIENT.RobotDetected. Wait %d seconds to reconnect...", n));
 				TimeUnit.SECONDS.sleep(n);
 				return getContent(url);
+			} else if (output.contains("<code>SERVER.EntityNotFound</code>")) {
+				printLog.writeDebugLog(String.format("Error with: <code>SERVER.EntityNotFound</code>"));
+//				Integer n = getRandomNumber(1, 3);
+//				TimeUnit.SECONDS.sleep(n);
+				return output;
+			} else if (output.contains("<code>CLIENT.InvalidCountryCode</code>")) {
+				printLog.writeDebugLog(String.format("Error with: <code>CLIENT.InvalidCountryCode</code>"));
+//				Integer n = getRandomNumber(1, 3);
+//				TimeUnit.SECONDS.sleep(n);
+				return output;
+			}else {
+				int nRetry = 3;
+				int i = 0;
+				while(i < nRetry){
+					printLog.writeDebugLog("********************************** Retry " + i + "****************************************");
+
+					httpResponse = connector.goTo(url.toString());
+					if (HttpStatus.SC_OK == httpResponse.getStatusLine().getStatusCode()) {
+						output = connector.toString(httpResponse.getEntity().getContent());
+						break;
+					}
+					i++;
+				}
 			}
+		}else {
+//			// Avoid Robot Detect.
+//			Integer n = getRandomNumber(1, 3);
+//			TimeUnit.SECONDS.sleep(n);
 		}
+		printLog.writeDebugLog("End::::::::::getContent::" );
+
 		return output;
+	}
+	
+	public int getRandomNumber(int min, int max) {
+	    return (int) ((Math.random() * (max - min)) + min);
 	}
 
 }
