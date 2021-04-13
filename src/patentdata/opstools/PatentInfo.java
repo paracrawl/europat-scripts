@@ -28,6 +28,9 @@ public class PatentInfo {
     private static final String DESCRIPTION_KEY = "DESCRIPTION";
     private static final String IMAGES_KEY = "IMAGES";
     private static final String PAGES_KEY = "PAGES";
+    private static final String IPC_KEY = "IPC";
+    private static final String END_KEY = "END";
+    private static final String END_VALUE = ".";
 
     private static final String[] KEYS = {
         ID_KEY,
@@ -38,7 +41,9 @@ public class PatentInfo {
         CLAIMS_KEY,
         DESCRIPTION_KEY,
         IMAGES_KEY,
-        PAGES_KEY};
+        PAGES_KEY,
+        IPC_KEY,
+        END_KEY};
 
     private final Map<String, String> info = new HashMap<>();
 
@@ -48,6 +53,7 @@ public class PatentInfo {
         if (parts.length > 3) {
             info.put(DATE_KEY, parts[3]);
         }
+        info.put(END_KEY, END_VALUE);
     }
 
     public static String getCountry(String docId) {
@@ -200,6 +206,22 @@ public class PatentInfo {
 
     public void setPages(int nPages) {
         info.put(PAGES_KEY, Integer.toString(nPages));
+    }
+
+    public boolean checkedIpcLabels() {
+        return info.get(IPC_KEY) != null;
+    }
+
+    public boolean hasIpcLabels() {
+        return ! getIpcLabels().isEmpty();
+    }
+
+    public List<String> getIpcLabels() {
+        return splitValues(info.get(IPC_KEY));
+    }
+
+    public void setIpcLabels(List<String> labels) {
+        info.put(IPC_KEY, combineValues(labels));
     }
 
     /**

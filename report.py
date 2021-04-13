@@ -139,7 +139,11 @@ def calculate_counts(args, year):
     with open(infofile) as file:
         for line in file:
             counted[ENTRIES] += 1
-            docid, _, _, t, a, c, d, p, n = line.split('\t')
+            parts = line.split('\t')
+            if len(parts) == 9:
+                docid, _, _, t, a, c, d, p, n = parts
+            else:
+                docid, _, _, t, a, c, d, p, n, _, _ = parts
             page_count = 0 if 'null' in n else int(n)
             found = {}
             found[TITLES] = 1 * args.country in t
