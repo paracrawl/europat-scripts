@@ -15,6 +15,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import org.apache.commons.io.FileUtils;
@@ -182,6 +184,19 @@ public class PatentResultWriter {
     }
 
     /**
+     * Write the metadata to file.
+     */
+    public void writeMetadata(List<PatentInfo> info) throws Exception {
+        if (! info.isEmpty()) {
+            List<String> lines = new ArrayList<>();
+            for (PatentInfo p : info) {
+                lines.add(formatPatentMetadata(p));
+            }
+            writeLines(getMetadataFile(), lines);
+        }
+    }
+
+    /**
      * Write the given stream into a PDF files in a standard location,
      * named using the given patent information and page number.
      */
@@ -295,6 +310,11 @@ public class PatentResultWriter {
 
     private File getMissingIdsFile(String fileType) {
         return getIdsFile(getMissingFileType(fileType));
+    }
+
+    private File getMetadataFile() {
+        String fileName = String.join("-", countryCode, year, "meta") + ".tab";
+        return new File(resultDir, fileName);
     }
 
     private File getLanguageFile(String language, String fileType) {
@@ -425,4 +445,66 @@ public class PatentResultWriter {
     private static String parseContent(String content, String fileType) {
         return content.trim().replaceAll("<br>", "\n");
     }
+
+    private static String formatPatentMetadata(PatentInfo p) {
+        List<String> values = new ArrayList<>();
+        values.add(p.getDocdbId());
+        values.add(p.getDate());
+        values.add(""); // application ID
+        values.add(""); // application date
+        values.add(p.getCountry());
+        values.add(formatIpcCodes(p.getDocdbId(), p.getIpcLabels()));
+        return String.join("\t", values);
+    }
+
+    private static String formatIpcCodes(String docId, List<String> rawCodes) {
+        List<String> codes = new ArrayList<>();
+        for (String code: rawCodes) {
+            codes.add(formatIpcCode(docId, code));
+        }
+        return String.join(",", codes);
+    }
+
+    // IPC code should be in standard 50-character format
+    private static final Pattern ipcStandard = Pattern.compile("^([A-H][0-9]{2}[A-Z])([0-9 ]{4})(/)([0-9 ]{6}).{35}$");
+
+    // Shortened IPC codes are also valid
+    private static final Pattern ipcShort = Pattern.compile("^([A-H][0-9]{2}[A-Z])([0-9 ]{4}) {7}.{35}$");
+
+    private static String formatIpcCode(String docId, String text) {
+        Matcher m = ipcStandard.matcher(text);
+        if (! m.matches()) {
+            m = ipcShort.matcher(text);
+        }
+        if (m.matches()) {
+            StringBuilder buf = new StringBuilder();
+            for (int i = 1; i <= m.groupCount(); i++) {
+                if (i == 2 || i == 4) {
+                    buf.append(m.group(i).trim());
+                } else {
+                    buf.append(m.group(i));
+                }
+            }
+            return buf.toString();
+        }
+        LOGGER.debug("Found IPC code in non-standard format for " + docId + ": '" + text + "'");
+        return formatIpcManual(text);
+    }
+
+    private static final Pattern ipcPatternStart = Pattern.compile("^[0-9]([A-Z] )");
+    private static final Pattern ipcPatternEnd = Pattern.compile("(\\/ ?[0-9]*)( +.+?)$");
+
+    // attempt to format the IPC code manually
+    private static String formatIpcManual(String text) {
+        // collapse spaces
+        text = text.replaceAll("\\s+", " ").trim();
+        // remove extra content at the start
+        text = ipcPatternStart.matcher(text).replaceAll("$1");
+        // remove extra content at the end
+        text = ipcPatternEnd.matcher(text).replaceAll("$1");
+        // remove all remaining spaces
+        text = text.replaceAll(" ", "");
+        return text;
+    }
+
 }
