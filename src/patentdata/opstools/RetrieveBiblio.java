@@ -54,8 +54,9 @@ public class RetrieveBiblio {
             // initialise the inputs
             for (PatentInfo p : inputInfo) {
                 String docId = p.getDocdbId();
-                if (p.checkedTitle() && p.checkedAbstract() && ! (p.hasTitle() || p.hasAbstract())) {
-                    // we know there's no title or abstract -- skip
+                if (p.checkedTitle() && p.checkedAbstract() && p.checkedIpcLabels()
+                    && ! (p.hasTitle() || p.hasAbstract())) {
+                    // we know there's nothing to retrieve -- skip
                     LOGGER.debug("  skipping " + docId);
                 } else {
                     docIds.add(docId);
@@ -92,7 +93,7 @@ public class RetrieveBiblio {
                 writer.writeContent(abstractMap.get(language), language, PatentResultWriter.ABSTRACT_FILE);
             }
         }
-        
+
         @Override
         public void writeCheckpointResults(PatentResultWriter writer) throws Exception {
             writer.writeInfo(getInfo());
@@ -104,7 +105,9 @@ public class RetrieveBiblio {
             Set<String> titleLanguages = new HashSet<>();
             Set<String> abstractLanguages = new HashSet<>();
             for (PatentInfo p : getInfo()) {
-                if (! p.checkedTitle() || ! p.checkedAbstract()) {
+                if (p.checkedTitle() && p.checkedAbstract() && p.checkedIpcLabels()) {
+                    // all checks done
+                } else {
                     // more to do - ignore checkpoint data
                     return;
                 }
@@ -126,6 +129,15 @@ public class RetrieveBiblio {
             return true;
         }
 
+        private List<String> processIpcLabels(NodeList labels) {
+            List<String> result = new ArrayList<>();
+            for (int i = 0; i < labels.getLength(); i++) {
+                Element labelNode = (Element) labels.item(i);
+                result.add(OpsXmlHelper.getFirstChildText(labelNode, "text"));
+            }
+            return result;
+        }
+
         private void processResult(String xmlString) throws Exception {
             LOGGER.trace(XML_MARKER, "*** Processing biblio");
             LOGGER.trace(XML_MARKER, xmlString);
@@ -143,6 +155,9 @@ public class RetrieveBiblio {
                 p.setTitles(ValueProcessor.processResults(p, titles, titleMap));
                 NodeList abstracts = docNode.getElementsByTagName("abstract");
                 p.setAbstracts(ValueProcessor.processResults(p, abstracts, abstractMap));
+                NodeList labels = docNode.getElementsByTagName("classification-ipcr");
+                p.setIpcLabels(processIpcLabels(labels));
+                LOGGER.debug(docId + ": " + p.getIpcLabels());
             }
         }
     }
