@@ -35,6 +35,7 @@ public class PDFPatentPipeline {
 
     public static final String STAGE_ALL = "all";
     public static final String STAGE_BIBLIO = "biblio";
+    public static final String STAGE_META = "meta";
     public static final String STAGE_CLAIMS = "claims";
     public static final String STAGE_DESCRIPTION = "description";
     public static final String STAGE_FULLTEXT = "fulltext";
@@ -185,6 +186,7 @@ public class PDFPatentPipeline {
         buf.append("  claims        : download claims").append("\n");
         buf.append("  description   : download descriptions").append("\n");
         buf.append("  biblio        : download titles and abstracts").append("\n");
+        buf.append("  meta          : write out metadata").append("\n");
         buf.append("  text          : download claims and descriptions").append("\n");
         buf.append("  search        : identify patents").append("\n");
         buf.append("  fulltext      : identify patents with full text").append("\n");
@@ -249,6 +251,9 @@ public class PDFPatentPipeline {
                 case STAGE_BIBLIO:
                     success = RetrieveBiblio.run(api, writer, info);
                     break;
+                case STAGE_META:
+                    success = WriteMetadata.run(api, writer, info);
+                    break;
                 case STAGE_CLAIMS:
                     success = RetrieveClaims.run(api, writer, info);
                     break;
@@ -287,6 +292,7 @@ public class PDFPatentPipeline {
                 switch(stage) {
                 case STAGE_CLAIMS:
                 case STAGE_DESCRIPTION:
+                case STAGE_META:
                 case STAGE_PDF:
                 case STAGE_REPORT:
                 case STAGE_SAMPLE:
@@ -322,6 +328,10 @@ public class PDFPatentPipeline {
                 addStage(STAGE_SEARCH, stages);
                 stages.add(stage);
                 break;
+            case STAGE_META:
+                addStage(STAGE_BIBLIO, stages);
+                stages.add(stage);
+                break;
             case STAGE_CLAIMS:
             case STAGE_DESCRIPTION:
                 addStage(STAGE_BIBLIO, stages);
@@ -339,6 +349,7 @@ public class PDFPatentPipeline {
                 stages.add(stage);
                 break;
             case STAGE_ALL:
+                addStage(STAGE_META, stages);
                 addStage(STAGE_PDF, stages);
                 addStage(STAGE_TEXT, stages);
                 break;
