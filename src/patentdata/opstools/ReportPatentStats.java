@@ -42,6 +42,7 @@ public class ReportPatentStats {
 
     private static void printStats(PatentResultWriter writer, List<PatentInfo> info) {
         Map<String, List<String>> downloadedPdfs = writer.findPdfFiles();
+        Map<String, List<String>> downloadedSamplePdfs = writer.getSampleWriter().findPdfFiles();
         Map<String, Integer> titles = new TreeMap<>();
         Map<String, Integer> abstracts = new TreeMap<>();
         Map<String, Integer> claims = new TreeMap<>();
@@ -63,6 +64,8 @@ public class ReportPatentStats {
         int totalNeededPages = 0;
         int totalUnreadDownloadedPages = 0;
         int totalNeededDownloadedPages = 0;
+        int withDownloadedSamplePages = 0;
+        int totalDownloadedSamplePages = 0;
         int missingInfo = 0;
         for (PatentInfo p : info) {
             totalPatents++;
@@ -97,6 +100,13 @@ public class ReportPatentStats {
                 if (p.hasTitle() && p.hasAbstract() && p.hasClaims() && p.hasDescription()) {
                     withAllText++;
                     LOGGER.trace(REPORT_MARKER, p.getDocdbId() + " all text available");
+                    if (p.hasImages()) {
+                        int nDownloadedSamplePages = writer.countPdfFiles(p, downloadedSamplePdfs);
+                        if (nDownloadedSamplePages > 0) {
+                            withDownloadedSamplePages++;
+                            totalDownloadedSamplePages += nDownloadedSamplePages;
+                        }
+                    }
                 } else if (p.hasImages()) {
                     int nPages = p.getNPages();
                     int nDownloadedPages = writer.countPdfFiles(p, downloadedPdfs);
@@ -196,6 +206,10 @@ public class ReportPatentStats {
                 System.out.println(String.format("%8d PDF pages needed (mean %.1f per patent)", totalNeededPages, averagePages));
                 System.out.println(String.format("%8d PDF pages downloaded already", totalNeededDownloadedPages));
                 System.out.println(String.format("%8d PDF pages still to download", totalNeededPages - totalNeededDownloadedPages));
+            }
+            if (withDownloadedSamplePages > 0) {
+                System.out.println(String.format("  additional sample PDF pages:"));
+                System.out.println(String.format("%8d PDF pages downloaded from %d sample patents", totalDownloadedSamplePages, withDownloadedSamplePages));
             }
             if (totalPatents > patentsProcessed) {
                 System.out.println(String.format("  to do:"));

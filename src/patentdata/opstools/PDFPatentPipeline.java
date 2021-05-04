@@ -55,7 +55,7 @@ public class PDFPatentPipeline {
     // use the same helper to manage all the API calls
     private final OpsApiHelper api;
 
-    // zero indicates we are not using sampling
+    // sample size for patents with all text parts available: zero to get them all
     private final int sampleSize;
 
     public PDFPatentPipeline(String configFilePath, int sampleSize) throws Exception {
@@ -237,9 +237,6 @@ public class PDFPatentPipeline {
         PatentResultWriter writer = new PatentResultWriter(config.getWorkingDirName(), countryCode, year);
         // initialise values from the master copy
         List<PatentInfo> info = writer.readInfo();
-        if (stages.contains(STAGE_SAMPLE)) {
-            writer = writer.getSampleWriter();
-        }
         for (String stage : stages) {
             if (! STAGE_REPORT.equals(stage)) {
                 LOGGER.info("** Starting " + stage + " stage **");
@@ -273,7 +270,7 @@ public class PDFPatentPipeline {
                     success = ReportPatentStats.run(writer, countryCode, year, info);
                     break;
                 case STAGE_SAMPLE:
-                    success = DownloadPdfPatents.downloadSample(api, writer, info, sampleSize);
+                    success = DownloadPdfPatents.downloadSample(api, writer.getSampleWriter(), info, sampleSize);
                     break;
                 case STAGE_SEARCH:
                     success = FindPatentIds.run(api, writer, countryCode, year, info);
@@ -318,7 +315,6 @@ public class PDFPatentPipeline {
             case STAGE_REPORT:
                 // don't add anything
                 break;
-            case STAGE_SAMPLE:
             case STAGE_SEARCH:
                 stages.add(stage);
                 break;
@@ -344,6 +340,7 @@ public class PDFPatentPipeline {
                 addStage(STAGE_IMAGES, stages);
                 // prepdf is not a real stage - don't add
                 break;
+            case STAGE_SAMPLE:
             case STAGE_PDF:
                 addStage(STAGE_PREPDF, stages);
                 stages.add(stage);

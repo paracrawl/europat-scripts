@@ -54,17 +54,21 @@ public class DownloadPdfPatents {
         private int pageId = 0;
 
         public PdfDownloader(List<PatentInfo> inputInfo, PatentResultWriter writer) throws Exception {
-            this(inputInfo, writer, 0);
+            this(inputInfo, writer, false, 0);
         }
 
         public PdfDownloader(List<PatentInfo> inputInfo, PatentResultWriter writer, int sampleSize) throws Exception {
+            this(inputInfo, writer, true, sampleSize);
+        }
+
+        private PdfDownloader(List<PatentInfo> inputInfo, PatentResultWriter writer, boolean sampling, int sampleSize) throws Exception {
             super(inputInfo);
             this.writer = writer;
             // initialise the inputs
             int count = 0;
             Map<String, List<String>> downloadedPdfs = writer.findPdfFiles();
             for (PatentInfo p : inputInfo) {
-                if (shouldProcess(p, sampleSize > 0)) {
+                if (shouldProcess(p, sampling)) {
                     if (p.getNPages() > MAX_PAGES) {
                         LOGGER.debug("  skipping " + p.getDocdbId() + " - too many pages");
                         continue;
@@ -82,7 +86,7 @@ public class DownloadPdfPatents {
                     LOGGER.debug("  skipping " + p.getDocdbId());
                 }
             }
-            if (sampleSize > 0 && count < sampleSize) {
+            if (sampling && count < sampleSize) {
                 LOGGER.warn("  sample size not reached: found " + count);
             }
         }
@@ -176,63 +180,36 @@ public class DownloadPdfPatents {
         }
 
         private static boolean shouldProcess(PatentInfo p, boolean sampling) {
+            List<String> missing = new ArrayList<>();
+            if (! p.checkedTitle()) {
+                missing.add("title");
+            }
+            if (! p.checkedAbstract()) {
+                missing.add("abstract");
+            }
+            if (! p.checkedClaims()) {
+                missing.add("claims");
+            }
+            if (! p.checkedDescription()) {
+                missing.add("description");
+            }
+            if (! p.checkedImages()) {
+                missing.add("images");
+            }
+            if (! missing.isEmpty()) {
+                String error = String.format("Check for %s first (%s).", String.join(", ", missing), p.getDocdbId());
+                throw new IllegalStateException(error);
+            }
             if (sampling) {
-                return shouldProcessForSample(p);
-            }
-            return shouldProcess(p);
-        }
-
-        private static boolean shouldProcess(PatentInfo p) {
-            List<String> missing = new ArrayList<>();
-            if (! p.checkedTitle()) {
-                missing.add("title");
-            }
-            if (! p.checkedAbstract()) {
-                missing.add("abstract");
-            }
-            if (! p.checkedClaims()) {
-                missing.add("claims");
-            }
-            if (! p.checkedDescription()) {
-                missing.add("description");
-            }
-            if (! p.checkedImages()) {
-                missing.add("images");
-            }
-            if (! missing.isEmpty()) {
-                String error = String.format("Check for %s first (%s).", String.join(", ", missing), p.getDocdbId());
-                throw new IllegalStateException(error);
-            }
-            if (p.hasTitle() && p.hasAbstract() && p.hasClaims() && p.hasDescription()) {
-                return false;
-            }
-            return p.hasImages();
-        }
-
-        private static boolean shouldProcessForSample(PatentInfo p) {
-            List<String> missing = new ArrayList<>();
-            if (! p.checkedTitle()) {
-                missing.add("title");
-            }
-            if (! p.checkedAbstract()) {
-                missing.add("abstract");
-            }
-            if (! p.checkedClaims()) {
-                missing.add("claims");
-            }
-            if (! p.checkedDescription()) {
-                missing.add("description");
-            }
-            if (! p.checkedImages()) {
-                missing.add("images");
-            }
-            if (! missing.isEmpty()) {
-                String error = String.format("Check for %s first (%s).", String.join(", ", missing), p.getDocdbId());
-                throw new IllegalStateException(error);
-            }
-            if (p.getLanguages().get(p.getCountry()) < 4) {
-                // skip if any part is not available as text in the main language
-                return false;
+                if (p.getLanguages().getOrDefault(p.getCountry(), 0) < 4) {
+                    // skip if any part is not available as text in the main language
+                    return false;
+                }
+            } else {
+                if (p.hasTitle() && p.hasAbstract() && p.hasClaims() && p.hasDescription()) {
+                    // skip if all parts are available as text in any language
+                    return false;
+                }
             }
             return p.hasImages();
         }

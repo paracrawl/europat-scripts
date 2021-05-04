@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 
 import java.util.Arrays;
@@ -280,6 +281,8 @@ public class PatentResultWriter {
                 }
                 result.get(docId).add(name);
             }
+        } catch (NoSuchFileException ex) {
+            LOGGER.debug("no PDF files in " + resultDir);
         } catch (Exception ex) {
             LOGGER.warn("problem finding PDF files", ex);
         }
