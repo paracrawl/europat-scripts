@@ -23,6 +23,8 @@ WANTED = 'wanted'
 DOWNLOADED = 'downloaded'
 INCOMPLETE = 'incomplete'
 UNAVAILABLE = 'unavailable'
+SAMPLE_PDFS = 'sample PDFs'
+SAMPLE_PAGES = 'sample pages'
 
 FILE_TYPES = OrderedDict()
 FILE_TYPES.update({TITLES : 'title'})
@@ -32,7 +34,7 @@ FILE_TYPES.update({DESCRIPTIONS : 'desc'})
 
 def compute_and_print_counts(args):
     # aggregate entries across all years
-    totals = [Counter(), Counter(), Counter(), Counter(), Counter(), Counter()]
+    totals = [Counter(), Counter(), Counter(), Counter(), Counter(), Counter(), Counter(), Counter()]
     text_totals = defaultdict(Counter)
     for year in range(args.start, args.end+1):
         label = '{}'.format(year)
@@ -51,7 +53,7 @@ def compute_and_print_counts(args):
         print_counts(args, totals, text_totals, label)
 
 def print_counts(args, result, text_results, label):
-    counted, incomplete, matched, unavailable, pdfs, pages = result
+    counted, incomplete, matched, unavailable, pdfs, pages, sample_pdfs, sample_pages = result
     search_incomplete = incomplete[PDFS] > 0
     pdf_counts = {PDFS : pdfs, PAGES : pages}
     text = ', {} incomplete'.format(incomplete[ENTRIES]) if incomplete[ENTRIES] else ''
@@ -88,6 +90,7 @@ def print_counts(args, result, text_results, label):
             print('{:>6} {} downloaded'.format(counts[DOWNLOADED], t))
     else:
         print_pdf_counts(pdf_counts)
+        print_pdf_counts({SAMPLE_PDFS : sample_pdfs, SAMPLE_PAGES : sample_pages})
 
 def print_pdf_counts(pdf_counts):
     for t in pdf_counts:
@@ -107,6 +110,8 @@ def print_pdf_counts(pdf_counts):
 def calculate_counts(args, year):
     session = '{}-{}'.format(args.country, year)
     yeardir = '{}/{}'.format(args.infodir, session)
+    sampledir = '{}/sample'.format(yeardir)
+    pdfdirs = [yeardir, sampledir]
     infofile = '{}/{}-info.txt'.format(yeardir, session)
     if not os.path.isdir(yeardir) or not os.path.isfile(infofile):
         return None, None
@@ -125,15 +130,17 @@ def calculate_counts(args, year):
         docids = text[t] if text is not None else None
         unavailable[t] = count_lines('{}/ids-{}-missing-{}.txt'.format(yeardir, session, t), docids)
     # find the downloaded PDF files for each patent
-    downloaded_pages = find_downloaded_pages((yeardir))
+    downloaded_pages = find_downloaded_pages(pdfdirs)
     # find the unavailable PDF files for each patent
-    unavailable_pages = find_unavailable_pages(('{}/ids-{}-missing-images.txt'.format(yeardir, session)))
+    unavailable_pages = find_unavailable_pages(('{}/ids-{}-missing-images.txt'.format(d, session) for d in pdfdirs))
     # count all entries and filtered entries in the main language
     counted = Counter()
     matched = Counter()
     incomplete = Counter()
     pdfs = Counter()
     pages = Counter()
+    sample_pdfs = Counter()
+    sample_pages = Counter()
     with open(infofile) as file:
         for line in file:
             counted[ENTRIES] += 1
@@ -170,6 +177,8 @@ def calculate_counts(args, year):
                     if within_limit:
                         for f in FILE_TYPES:
                             matched[f] += found[f]
+                else:
+                    process_pdfs(args, counts, sample_pdfs, sample_pages, docid)
     if text is not None:
         for f in FILE_TYPES:
             del text[f]
@@ -177,7 +186,7 @@ def calculate_counts(args, year):
             missing = text[docid]
             print('{}: missing {}'.format(docid, ' '.join(missing)))
     # return the results
-    return (counted, incomplete, matched, unavailable, pdfs, pages), text_results
+    return (counted, incomplete, matched, unavailable, pdfs, pages, sample_pdfs, sample_pages), text_results
 
 def process_pdfs(args, counts, pdfs, pages, docid):
     pages_total, pages_downloaded, pages_unavailable = counts
