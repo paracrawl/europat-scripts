@@ -65,55 +65,52 @@ def print_counts(args, result, text_results, label):
         counts = pdf_counts[t]
         matched_val = '?' if search_incomplete else counts[MATCHED]
         counted_val = '?' if search_incomplete else counts[COUNTED]
-        print('{:>6} / {:<5} {} are wanted{}'.format(matched_val, counted_val, t, limit))
+        print('{:>7} / {:<6} {} are wanted{}'.format(matched_val, counted_val, t, limit))
         limit = ''
     for t in FILE_TYPES:
         matched_val = '?' if search_incomplete or incomplete[t] else matched[t]
         counted_val = '?' if incomplete[t] else counted[t]
-        print('{:>6} / {:<5} {} have wanted PDFs'.format(matched_val, counted_val, t))
+        print('{:>7} / {:<6} {} have wanted PDFs'.format(matched_val, counted_val, t))
     num_langs = len(text_results)
     for lang in sorted(text_results):
         downloaded = text_results[lang]
         if num_langs > 1:
             print('  -- lang={} --'.format(lang))
         for t in FILE_TYPES:
-            print('{:>6} {} downloaded'.format(downloaded[t], t))
+            print('{:>7} {} downloaded'.format(downloaded[t], t))
     if num_langs > 1:
         print('  -- ------- --')
     for t in FILE_TYPES:
         unavailable_val = unavailable[t]
         if unavailable_val > 0:
-            print('{:>6} {} unavailable'.format(unavailable_val, t))
+            print('{:>7} {} unavailable'.format(unavailable_val, t))
     if search_incomplete:
         for t in pdf_counts:
             counts = pdf_counts[t]
-            print('{:>6} {} downloaded'.format(counts[DOWNLOADED], t))
+            print('{:>7} {} downloaded'.format(counts[DOWNLOADED], t))
     else:
         print_pdf_counts(pdf_counts)
-        if pages[DOWNLOADED] and sample_pages[DOWNLOADED]:
+        if pages[MATCHED] and sample_pages[MATCHED]:
             print('  -- ------- --')
-        print_pdf_counts({SAMPLE_PDFS : sample_pdfs, SAMPLE_PAGES : sample_pages}, sample=True)
+        print_pdf_counts({SAMPLE_PDFS : sample_pdfs, SAMPLE_PAGES : sample_pages})
 
-def print_pdf_counts(pdf_counts, sample=False):
+def print_pdf_counts(pdf_counts):
     for t in pdf_counts:
         counts = pdf_counts[t]
         downloaded = counts[DOWNLOADED]
         if downloaded > 0:
-            print('{:>6} / {:<5} downloaded {} are wanted'.format(counts[WANTED], downloaded, t))
+            print('{:>7} / {:<6} downloaded {} are wanted'.format(counts[WANTED], downloaded, t))
     for t in pdf_counts:
         for r in [INCOMPLETE, UNAVAILABLE]:
             counts = pdf_counts[t]
             missing = counts[r]
             if missing > 0:
-                print('{:>6} / {:<5} wanted {} are {}'.format(missing, counts[MATCHED], t, r))
+                print('{:>7} / {:<6} wanted {} are {}'.format(missing, counts[MATCHED], t, r))
     for t in pdf_counts:
         counts = pdf_counts[t]
         remaining = counts[MATCHED] - counts[WANTED] - counts[INCOMPLETE] - counts[UNAVAILABLE]
-        if sample:
-            if remaining > 0:
-                print('{:>6} wanted {} are available to download'.format(remaining, t))
-        else:
-            print('{:>6} wanted {} still to download'.format(remaining, t))
+        if counts[MATCHED] > 0:
+            print('{:>7} / {:<6} wanted {} still to download'.format(remaining, counts[MATCHED], t))
 
 def calculate_counts(args, year):
     session = '{}-{}'.format(args.country, year)
@@ -185,7 +182,7 @@ def calculate_counts(args, year):
                     if within_limit:
                         for f in FILE_TYPES:
                             matched[f] += found[f]
-                else:
+                elif has_all_text(args.country, (t, a, c, d)):
                     process_pdfs(args, counts, sample_pdfs, sample_pages, docid)
     if text is not None:
         for f in FILE_TYPES:
@@ -246,6 +243,12 @@ def find_unavailable_pages(filenames):
                     docid = line.strip().split()[0]
                     result[docid] += 1
     return result
+
+def has_all_text(language, parts):
+    for part in parts:
+        if not language in part.split('-'):
+            return False
+    return True
 
 def check_country(value):
     if len(value) == 2 and value.isalpha():
