@@ -90,22 +90,30 @@ def print_counts(args, result, text_results, label):
             print('{:>6} {} downloaded'.format(counts[DOWNLOADED], t))
     else:
         print_pdf_counts(pdf_counts)
-        print_pdf_counts({SAMPLE_PDFS : sample_pdfs, SAMPLE_PAGES : sample_pages})
+        if pages[DOWNLOADED] and sample_pages[DOWNLOADED]:
+            print('  -- ------- --')
+        print_pdf_counts({SAMPLE_PDFS : sample_pdfs, SAMPLE_PAGES : sample_pages}, sample=True)
 
-def print_pdf_counts(pdf_counts):
+def print_pdf_counts(pdf_counts, sample=False):
     for t in pdf_counts:
         counts = pdf_counts[t]
-        print('{:>6} / {:<5} downloaded {} are wanted'.format(counts[WANTED], counts[DOWNLOADED], t))
+        downloaded = counts[DOWNLOADED]
+        if downloaded > 0:
+            print('{:>6} / {:<5} downloaded {} are wanted'.format(counts[WANTED], downloaded, t))
     for t in pdf_counts:
         for r in [INCOMPLETE, UNAVAILABLE]:
             counts = pdf_counts[t]
-            missing_val = counts[r]
-            if missing_val > 0:
-                print('{:>6} / {:<5} wanted {} are {}'.format(missing_val, counts[MATCHED], t, r))
+            missing = counts[r]
+            if missing > 0:
+                print('{:>6} / {:<5} wanted {} are {}'.format(missing, counts[MATCHED], t, r))
     for t in pdf_counts:
         counts = pdf_counts[t]
-        remaining_val = counts[MATCHED] - counts[WANTED] - counts[INCOMPLETE] - counts[UNAVAILABLE]
-        print('{:>6} wanted {} still to download'.format(remaining_val, t))
+        remaining = counts[MATCHED] - counts[WANTED] - counts[INCOMPLETE] - counts[UNAVAILABLE]
+        if sample:
+            if remaining > 0:
+                print('{:>6} wanted {} are available to download'.format(remaining, t))
+        else:
+            print('{:>6} wanted {} still to download'.format(remaining, t))
 
 def calculate_counts(args, year):
     session = '{}-{}'.format(args.country, year)
