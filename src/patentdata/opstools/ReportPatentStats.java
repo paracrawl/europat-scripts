@@ -100,7 +100,13 @@ public class ReportPatentStats {
                 if (p.hasTitle() && p.hasAbstract() && p.hasClaims() && p.hasDescription()) {
                     withAllText++;
                     LOGGER.trace(REPORT_MARKER, p.getDocdbId() + " all text available");
-                    if (p.hasImages()) {
+                    // do we have all text parts in the main language?
+                    String lang = p.getCountry();
+                    if (p.getTitles().contains(lang)
+                        && p.getAbstracts().contains(lang)
+                        && p.getClaims().contains(lang)
+                        && p.getDescriptions().contains(lang)
+                        && p.hasImages()) {
                         int nDownloadedSamplePages = writer.countPdfFiles(p, downloadedSamplePdfs);
                         if (nDownloadedSamplePages > 0) {
                             withDownloadedSamplePages++;
