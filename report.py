@@ -20,6 +20,7 @@ PAGES = 'pages'
 COUNTED = 'counted'
 MATCHED = 'matched'
 WANTED = 'wanted'
+ALL_TEXT = 'all text'
 DOWNLOADED = 'downloaded'
 INCOMPLETE = 'incomplete'
 UNAVAILABLE = 'unavailable'
@@ -71,6 +72,7 @@ def print_counts(args, result, text_results, label):
         matched_val = '?' if search_incomplete or incomplete[t] else matched[t]
         counted_val = '?' if incomplete[t] else counted[t]
         print('{:>7} / {:<6} {} have wanted PDFs'.format(matched_val, counted_val, t))
+    print('{:>7} / {:<6} patents have all text in {}'.format(counted[ALL_TEXT], counted[ENTRIES], args.country))
     num_langs = len(text_results)
     for lang in sorted(text_results):
         downloaded = text_results[lang]
@@ -161,11 +163,14 @@ def calculate_counts(args, year):
             found[ABSTRACTS] = 1 * args.country in a
             found[CLAIMS] = 1 * args.country in c
             found[DESCRIPTIONS] = 1 * args.country in d
+            all_text_main_lang = not 0 in found.values()
             for f in FILE_TYPES:
                 counted[f] += found[f]
                 if text is not None:
                     if found[f] and docid not in text[f]:
                         text[docid].add(f)
+            if all_text_main_lang:
+                counted[ALL_TEXT] += 1
             pdf = 1 * args.country in p
             pdfs[COUNTED] += pdf
             pages[COUNTED] += page_count
@@ -183,7 +188,7 @@ def calculate_counts(args, year):
                     if within_limit:
                         for f in FILE_TYPES:
                             matched[f] += found[f]
-                elif has_all_text(args.country, (t, a, c, d)):
+                elif all_text_main_lang:
                     counts = (page_count, downloaded_sample_pages[docid], unavailable_sample_pages[docid])
                     process_pdfs(args, counts, sample_pdfs, sample_pages, docid)
     if text is not None:
@@ -243,12 +248,6 @@ def find_unavailable_pages(filename):
                 docid = line.strip().split()[0]
                 result[docid] += 1
     return result
-
-def has_all_text(language, parts):
-    for part in parts:
-        if not language in part.split('-'):
-            return False
-    return True
 
 def check_country(value):
     if len(value) == 2 and value.isalpha():
