@@ -116,7 +116,6 @@ def calculate_counts(args, year):
     session = '{}-{}'.format(args.country, year)
     yeardir = '{}/{}'.format(args.infodir, session)
     sampledir = '{}/sample'.format(yeardir)
-    pdfdirs = [yeardir, sampledir]
     infofile = '{}/{}-info.txt'.format(yeardir, session)
     if not os.path.isdir(yeardir) or not os.path.isfile(infofile):
         return None, None
@@ -135,9 +134,11 @@ def calculate_counts(args, year):
         docids = text[t] if text is not None else None
         unavailable[t] = count_lines('{}/ids-{}-missing-{}.txt'.format(yeardir, session, t), docids)
     # find the downloaded PDF files for each patent
-    downloaded_pages = find_downloaded_pages(pdfdirs)
+    downloaded_pages = find_downloaded_pages(yeardir)
+    downloaded_sample_pages = find_downloaded_pages(sampledir)
     # find the unavailable PDF files for each patent
-    unavailable_pages = find_unavailable_pages(('{}/ids-{}-missing-images.txt'.format(d, session) for d in pdfdirs))
+    unavailable_pages = find_unavailable_pages('{}/ids-{}-missing-images.txt'.format(yeardir, session))
+    unavailable_sample_pages = find_unavailable_pages('{}/ids-{}-missing-images.txt'.format(sampledir, session))
     # count all entries and filtered entries in the main language
     counted = Counter()
     matched = Counter()
@@ -176,13 +177,14 @@ def calculate_counts(args, year):
             if 'null' in ' '.join([t, a, c, d, n]):
                 incomplete[ENTRIES] += 1
             elif page_count > 0:
-                counts = (page_count, downloaded_pages[docid], unavailable_pages[docid])
                 if len(t) * len(a) * len(c) * len(d) == 0:
+                    counts = (page_count, downloaded_pages[docid], unavailable_pages[docid])
                     within_limit = process_pdfs(args, counts, pdfs, pages, docid)
                     if within_limit:
                         for f in FILE_TYPES:
                             matched[f] += found[f]
                 elif has_all_text(args.country, (t, a, c, d)):
+                    counts = (page_count, downloaded_sample_pages[docid], unavailable_sample_pages[docid])
                     process_pdfs(args, counts, sample_pdfs, sample_pages, docid)
     if text is not None:
         for f in FILE_TYPES:
@@ -225,23 +227,21 @@ def count_lines(filename, docids=None):
                     docids.add(docid.replace('-', '.'))
     return count
 
-def find_downloaded_pages(dirs):
+def find_downloaded_pages(dirname):
     result = Counter()
-    for dirname in dirs:
-        if os.path.isdir(dirname):
-            for filename in map(lambda x: x.name, Path(dirname).glob('*.pdf')):
-                docid, _ = filename.replace('-', '.', 2).split('-', 1)
-                result[docid] += 1
+    if os.path.isdir(dirname):
+        for filename in map(lambda x: x.name, Path(dirname).glob('*.pdf')):
+            docid, _ = filename.replace('-', '.', 2).split('-', 1)
+            result[docid] += 1
     return result
 
-def find_unavailable_pages(filenames):
+def find_unavailable_pages(filename):
     result = Counter()
-    for filename in filenames:
-        if os.path.isfile(filename):
-            with open(filename) as file:
-                for line in file:
-                    docid = line.strip().split()[0]
-                    result[docid] += 1
+    if os.path.isfile(filename):
+        with open(filename) as file:
+            for line in file:
+                docid = line.strip().split()[0]
+                result[docid] += 1
     return result
 
 def has_all_text(language, parts):
