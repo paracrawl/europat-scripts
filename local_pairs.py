@@ -13,11 +13,12 @@ DEFAULT_START_YEAR = 1980
 
 EN = 'en'
 
+# patent parts in order
 FILE_TYPES = OrderedDict()
 FILE_TYPES.update({'Title' : 'title'})
 FILE_TYPES.update({'Abstract' : 'abstract'})
-FILE_TYPES.update({'Claim' : 'claim'})
 FILE_TYPES.update({'Description' : 'desc'})
+FILE_TYPES.update({'Claim' : 'claim'})
 
 def generate_pairs(args):
     for year in range(args.start, args.end+1):
