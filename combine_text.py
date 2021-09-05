@@ -69,6 +69,12 @@ def combine_text_by_language(input_filenames):
             df = df.drop(columns=[CONTENT_FIELD_X, CONTENT_FIELD_Y])
     return df
 
+def read_file(filename):
+    if os.path.isfile(filename):
+        with open(filename) as file:
+            for line in file:
+                yield line.strip().split('\t', 2)
+
 def fix_format_errors(df):
     # fix some common file format errors
     TMP_FIELD = 'tmp'
@@ -76,6 +82,7 @@ def fix_format_errors(df):
     df[DATE_FIELD] = df[DATE_FIELD].str[:8]
     df[CONTENT_FIELD] = df[[TMP_FIELD, CONTENT_FIELD]].apply(join_text, axis=1)
     df = df.drop(columns=[TMP_FIELD])
+    df[CONTENT_FIELD] = df[CONTENT_FIELD].str.replace('\t', '@TAB@')
     df = df.drop_duplicates([ID_FIELD, DATE_FIELD])
     return df
 
@@ -137,7 +144,7 @@ def get_output_filename(args, lang, year):
     return output_filename
 
 def read_data(filename):
-    return pd.read_csv(filename, sep='\t', dtype='str', quoting=csv.QUOTE_NONE, names=[ID_FIELD, DATE_FIELD, CONTENT_FIELD])
+    return pd.DataFrame(read_file(filename), columns=[ID_FIELD, DATE_FIELD, CONTENT_FIELD])
 
 def write_data(df, filename):
     df = df[[ID_FIELD, DATE_FIELD, CONTENT_FIELD]]
