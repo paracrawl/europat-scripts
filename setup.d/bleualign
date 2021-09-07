@@ -1,3 +1,5 @@
+#!/bin/bash
+
 is-installed() {
 	test -x bin/bleualign_cpp
 }
@@ -7,7 +9,7 @@ depends() {
 }
 
 install() {
-	pushd bleualign
+	pushd bleualign-cpp
 	mkdir -p build && cd build
 	cmake .. \
 		-DCMAKE_BUILD_TYPE=Release \

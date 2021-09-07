@@ -9,7 +9,7 @@ depends() {
 }
 
 install() {
-	pushd classbase
+	pushd europat-classbase
 	mvn package
 	exec install target/ClassBaseEncoding-0.0.1-SNAPSHOT-jar-with-dependencies.jar $PREFIX/bin/classbase.jar
 	popd

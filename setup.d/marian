@@ -19,19 +19,34 @@ install() {
 	# lose where CUDA is on Cirrus.
 	rm -f CMakeCache.txt
 
-	# Removed?
-	# -DCMAKE_CXX_STANDARD_LIBRARIES="-liconv" \
+	# Removed -DCMAKE_CXX_STANDARD_LIBRARIES="-liconv"
+	local MARIAN_OPTIONS=(
+		-DCMAKE_INSTALL_PREFIX=$PREFIX
+		-DUSE_SENTENCEPIECE=ON
+		-DCOMPILE_CUDA=ON
+		-DUSE_STATIC_LIBS=ON
+	)
+
 	# Cirrus: Also need to explicitly point it to librt for some odd reason
-	cmake ..\
-		-DCMAKE_INSTALL_PREFIX=$PREFIX \
-		-DUSE_SENTENCEPIECE=ON \
-		-DCOMPILE_CUDA=ON \
-		-DUSE_STATIC_LIBS=ON \
-		-DCUDA_cublas_LIBRARY=${MATHLIB}/libcublas.so \
-		-DCUDA_cublasLt_LIBRARY=${MATHLIB}/libcublasLt.so \
-		-DCUDA_curand_LIBRARY:FILEPATH=${MATHLIB}/libcurand.so \
-		-DCUDA_cusparse_LIBRARY:FILEPATH=${MATHLIB}/libcusparse.so \
-		-DCUDA_rt_LIBRARY:FILEPATH=/usr/lib64/librt.so
+	if [ ! -z "${MATHLIB:-}" ]; then
+		MARIAN_OPTIONS=(
+			${MARIAN_OPTIONS[@]}
+			-DCUDA_cublas_LIBRARY=${MATHLIB}/libcublas.so
+			-DCUDA_cublasLt_LIBRARY=${MATHLIB}/libcublasLt.so
+			-DCUDA_curand_LIBRARY:FILEPATH=${MATHLIB}/libcurand.so
+			-DCUDA_cusparse_LIBRARY:FILEPATH=${MATHLIB}/libcusparse.so
+			-DCUDA_rt_LIBRARY:FILEPATH=/usr/lib64/librt.so
+		)
+	fi
+
+	if [[ $(hostname -A) =~ "hpc.cam.ac.uk" ]]; then
+		MARIAN_OPTIONS=(
+			${MARIAN_OPTIONS[@]}
+			-DBUILD_ARCH=broadwell
+		)
+	fi
+
+	cmake .. ${MARIAN_OPTIONS[@]}
 
 	make -j8 marian_decoder marian_conv
 	# make install # bad idea, installs all kinds of libraries

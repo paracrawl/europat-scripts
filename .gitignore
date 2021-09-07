@@ -7,3 +7,8 @@
 /src/gperftools*
 /src/pv*
 /src/apache-maven-*
+/src/marian-dev/*
+/src/bleualign-cpp/*
+/src/tmxutil/*
+/src/preprocess/*
+/src/europat-classbase/*

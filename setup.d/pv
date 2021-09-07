@@ -1,5 +1,5 @@
 is-installed() {
-	test -x $PREFIX/bin/pv
+	which pv &> /dev/null
 }
 
 install() {

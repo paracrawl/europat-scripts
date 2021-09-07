@@ -1,27 +1,36 @@
 #!/bin/bash
-#SBATCH --account dc007
+#SBATCH --account t2-cs119-gpu
 #SBATCH --nodes 1
+#SBATCH --cpus-per-task 8
 #SBATCH --gres gpu:4
 #SBATCH --time 24:00:00
-#SBATCH --qos gpu
-#SBATCH --partition gpu-cascade,gpu-skylake
+#SBATCH --partition pascal
 set -eou pipefail
 
-PREFIX=$(dirname $(realpath $0))
+export PREFIX=$HOME/src/europat-scripts
 source $PREFIX/init.sh
 
 # How many bleualign?
-THREADS=${SLURM_CPUS_ON_NODE:-4}
+export THREADS=${SLURM_CPUS_ON_NODE:-4}
+export TMPSUF=${SLURM_JOB_ID:-$$}
 
-export SLANG=$1
+declare -a MODEL=("$1")
 shift
 
-if [[ -f $PREFIX/models/${SLANG}-en/translate.sh ]]; then
-	MODEL=$PREFIX/models/${SLANG}-en/translate.sh
-else
-	echo "Supported languages: de, fr" 1>&2
-	exit 1
-fi
+while [[ $# > 0 ]] && [[ $1 != -- ]]; do
+	MODEL=("${MODEL[@]}" "$1")
+	shift
+done
+shift # remove --
+
+# Check for software in path
+which marian-decoder \
+	b64filter \
+	bleualign_cpp \
+	foldfilter \
+	docenc \
+	pv \
+	parallel
 
 col () {
 	cut -d$'\t' -f$1
@@ -40,16 +49,21 @@ document_to_base64() {
 	| docenc -0
 }
 
+preprocess() {
+	if [ ! -z "${LOWERCASE:-}" ]; then
+		echo "Preprocessing with lowercase" >&2
+		lowercase
+	else
+		cat
+	fi
+}
+
+lowercase() {
+	sed -e 's/./\L\0/g'
+}
+
 translate () {
-	b64filter foldfilter -s -w 1000 $MODEL \
-		--quiet \
-		--beam-size 6 \
-		--normalize 1 \
-		--mini-batch 64 \
-		--maxi-batch 1000 \
-		--mini-batch-words 4000 \
-		--maxi-batch-sort src \
-		--workspace 8000
+	b64filter "$@"
 }
 
 buffer () {
@@ -76,45 +90,116 @@ align () {
 		--halt 2 \
 		--pipe \
 		--roundrobin \
+		--linebuffer \
 		-j $THREADS \
 		-N 1 \
 		bleualign_cpp --bleu-threshold 0.2 \
 	| gzip \
-	> $(basename $file .tab)-aligned.gz.$$
-	mv $(basename $file .tab)-aligned.gz{.$$,}
+	> $(basename $file .tab)-aligned.gz.$TMPSUF \
+	&& mv $(basename $file .tab)-aligned.gz{.$TMPSUF,}
 }
 
-for file in $*; do
-	n=$(cat $file | wc -l)
-	echo "$(basename $file): $n documents"
+align_worker () {
+	set -euo pipefail
+	echo Started align worker >&2
+	while read file; do
+		if [ -z "$file" ]; then
+			echo "Received stop signal" >&2
+			break
+		fi
+		echo "Aligning $file" >&2
+		if ! align $file ; then
+			echo "Aligning $file failed!" >&2
+		fi
+	done
+	echo Align worker done >&2
+	return 0
+}
 
-	# Moved the translation column from paste out of the file substitution
+if [ "${ALIGN_IN_BACKGROUND:-1}" -gt 0 ]; then
+	# Set up fifo pipe used as file queue
+	pipe=$(mktemp -u)
+	mkfifo $pipe
+	exec 3<>$pipe
+	rm $pipe
+	
+	# Start worker
+	align_worker <&3 &
+	PID=$!
+	echo Started align worker $PID >&2
+
+	# make sure we kill align worker when we get asked to stop.
+	trap "kill -9 -- $PID \$(ps -o pid --no-headers --ppid $PID)" INT TERM
+
+	# Call that's used when a file is ready to be aligned
+	align_queue () {
+		echo "Queueing $1" >&2
+		echo $1 >&3
+	}
+
+	align_join() {
+		# Send stop signal to worker
+		echo "" >&3
+		exec 3>&-
+		# Wait for worker to exit
+		echo "waiting on alignment to finish on $PID"
+		wait $PID
+	}
+else
+	# Just align immediately here and now
+	align_queue () {
+		echo "Aligning $1" >&2
+		align $1
+	}
+
+	align_join() {
+		:
+	}
+fi
+
+
+for file in $*; do
+	echo "model=${MODEL[@]}"
+
+	# moved the translation column from paste out of the file substitution
 	# into stdin of paste so any errors here (because here is the most
 	# likely place for errors to happen) will cause the program to fail.
-	cat $file \
-	| col 2 \
-	| document_to_base64 \
-	| progress $n prep-$SLANG \
-	| buffer 512M \
-	| translate \
-	| progress $n translate \
-	| paste \
-		<(cat $file | col 1) \
-		<(cat $file | col 3) \
-		<(cat $file | col 2 | document_to_base64) \
-		<(cat $file | col 4 | document_to_base64) \
-		- \
-		<(cat $file | col 4 | document_to_base64 | progress $n prep-en | buffer 512M) \
-	| progress $n write \
-	| gzip -9c \
-	> $(basename $file .tab)-bleualign-input.tab.gz.$$
-	
-	mv $(basename $file .tab)-bleualign-input.tab.gz{.$$,}
+	if [ ! -f $(basename $file .tab)-bleualign-input.tab.gz ]; then
+		n=$(cat $file | wc -l)
+		echo "$(basename $file): $n documents"
 
-	# Run align in the background we dont want to wait for it
-	align $file &
+		cat $file \
+		| col 2 \
+		| preprocess \
+		| document_to_base64 \
+		| tee >(gzip -c > $(basename $file .tab)-translate-input.gz) \
+		| buffer 512m \
+		| translate "${MODEL[@]}" \
+		| progress $n translate \
+		| paste \
+			<(cat $file | col 1) \
+			<(cat $file | col 3) \
+			<(cat $file | col 2 | document_to_base64) \
+			<(cat $file | col 4 | document_to_base64) \
+			- \
+			<(cat $file | col 4 | preprocess | document_to_base64 | buffer 512m) \
+		| progress $n write \
+		| gzip -9c \
+		> $(basename $file .tab)-bleualign-input.tab.gz.$TMPSUF \
+		&& mv $(basename $file .tab)-bleualign-input.tab.gz{.$TMPSUF,}
+	else
+		echo "$file already translated" >&2
+	fi \
+	&& if [ ! -f $(basename $file .tab)-aligned.gz ]; then
+		if [ "${ALIGN:-1}" -gt 0 ]; then
+			align_queue $file
+		fi
+	else
+		echo "$file already aligned" >&2
+	fi \
+	|| true # in case of failure, do continue with the next file
 done
 
-echo "Waiting on alignment to finish"
-wait
-echo "Done."
+align_join
+
+echo "Done" >&2
