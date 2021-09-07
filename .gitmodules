@@ -14,3 +14,6 @@
 [submodule "src/marian-dev"]
 	path = src/marian-dev
 	url = git@github.com:marian-nmt/marian-dev.git
+[submodule "models"]
+	path = models
+	url = git@github.com:paracrawl/europat-mt-models.git
