@@ -48,11 +48,10 @@ install() {
 
 	cmake .. ${MARIAN_OPTIONS[@]}
 
-	make -j8 marian_decoder marian_conv
+	make -j8 marian_decoder
 	# make install # bad idea, installs all kinds of libraries
 
 	cp marian-decoder $PREFIX/bin/marian-decoder
-	cp marian-conv $PREFIX/bin/marian-conv
 
 	popd
 }
