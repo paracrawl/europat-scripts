@@ -12,3 +12,6 @@
 /src/tmxutil/*
 /src/preprocess/*
 /src/europat-classbase/*
+*.out
+*.tab
+*.tab.*
