@@ -57,6 +57,20 @@ preprocess() {
 	fi
 }
 
+split-sentences() {
+	src/preprocess/moses/ems/support/split-sentences.perl \
+		-q \
+		-d \
+		-b \
+		-p nonbreaking_prefixes/nonbreaking_prefixes.$1 \
+		-n \
+		-k
+}
+
+duct-tape() {
+	python3 ./duct-tape.py --base64
+}
+
 lowercase() {
 	sed -e 's/./\L\0/g'
 }
@@ -67,12 +81,16 @@ translate () {
 
 for file in $*; do
 	n=$(cat $file | wc -l)
+	basename=${file##*/}
+	language=${basename%%-*}
 	echo "$(basename $file): $n documents" >&2
 
 	cat $file \
 	| col 3 \
 	| preprocess \
 	| document_to_base64 \
+	| duct-tape \
+	| split-sentences ${language,,} \
 	| translate "${MODEL[@]}" \
 	| paste \
 		<(cat $file | col 1) \
