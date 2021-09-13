@@ -4,8 +4,8 @@ if [[ "$(hostname -A)" =~ "epcc.ed.ac.uk" ]]; then
 	module load \
 		cmake \
 		intel-tools-19 \
-		nvidia/cuda-10.2 \
-		nvidia/mathlibs-10.2 \
+		nvidia/cuda-11.2 \
+		nvidia/mathlibs-11.2 \
 		java/jdk-14.0.1
 fi
 
