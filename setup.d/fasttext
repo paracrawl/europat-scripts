@@ -1,0 +1,17 @@
+#!/bin/bash
+
+is-installed() {
+	test -x $PREFIX/bin/fasttext
+}
+
+install() {
+	test -d fastText-0.9.2 || curl -L "https://github.com/facebookresearch/fastText/archive/refs/tags/v0.9.2.tar.gz" | tar -xz
+	
+	pushd fastText-0.9.2
+
+	# Make binary
+	make
+	cp fasttext $PREFIX/bin/fasttext
+
+	popd
+}
