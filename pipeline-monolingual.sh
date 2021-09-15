@@ -59,10 +59,10 @@ preprocess() {
 
 split-sentences() {
 	src/preprocess/moses/ems/support/split-sentences.perl \
-		-q \
 		-d \
 		-b \
-		-p nonbreaking_prefixes/nonbreaking_prefixes.$1 \
+		-l $1 \
+		-p nonbreaking_prefixes/nonbreaking_prefix.$1 \
 		-n \
 		-k
 }

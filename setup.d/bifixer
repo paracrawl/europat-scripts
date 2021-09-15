@@ -1,0 +1,14 @@
+#!/bin/bash
+
+is-installed() {
+	test -x $PREFIX/bin/bifixer
+}
+
+depends() {
+	echo python
+}
+
+install() {
+	pip3 install -U bifixer
+}
+

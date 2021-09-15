@@ -22,3 +22,6 @@
 	path = models
 	url = git@github.com:paracrawl/europat-mt-models.git
 	ignore = dirty
+[submodule "src/kenlm"]
+	path = src/kenlm
+	url = https://github.com/kpu/kenlm.git

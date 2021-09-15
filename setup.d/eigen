@@ -1,0 +1,21 @@
+#!/bin/bash
+
+is-installed() {
+	test -d $PREFIX/include/eigen3
+}
+
+depends() {
+	echo env
+}
+
+install() {
+	test -d eigen-3.4.0 || curl -L 'https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz' | tar -xz
+	pushd eigen-3.4.0
+
+	mkdir -p build && cd build
+
+	cmake .. -DCMAKE_INSTALL_PREFIX:PATH=$PREFIX
+	make install
+
+	popd
+}
