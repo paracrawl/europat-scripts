@@ -85,7 +85,7 @@ for year in $*; do
 	# 7: translated text
 	# 8: labels (deleted then)
 	
-	ocr_text=/lustre/home/dc007/efarrow/europat/ocr_text/${lang^^}-${year}-ocr.tab
+	ocr_text=/lustre/home/dc007/efarrow/europat/ocr_text_new/${lang^^}-${year}-ocr.tab
 	ocr_labels=./${lang^^}-${year}-ocr.labels.gz
 	translated_text=./${lang^^}-${year}-ocr-en.tab.gz
 	combined=./${lang^^}-${year}.tab.gz
@@ -99,19 +99,21 @@ for year in $*; do
 		$ocr_labels:2 \
 	| (fgrep -iv "\t__label__en " || true) \
 	| col 1-7 \
-	| pigz -c > $combined
+	| pigz -c > $combined.$TMPSUF
 
 	paste \
-		<(pigz -cd $combined | col 1) \
-		<(pigz -cd $combined | col 3) \
-		<(pigz -cd $combined | col 6 | document-to-base64 | duct-tape | split-sentences ${lang,,}) \
-		<(pigz -cd $combined | col 5 | ./clean-text-patent.py | document-to-base64 | split-sentences en) \
-		<(pigz -cd $combined | col 7 | cat) \
-		<(pigz -cd $combined | col 5 | ./clean-text-patent.py | document-to-base64 | split-sentences en) \
-	| tee >(pigz -c > $bleualign_input) \
+		<(pigz -cd $combined.$TMPSUF | col 1) \
+		<(pigz -cd $combined.$TMPSUF | col 3) \
+		<(pigz -cd $combined.$TMPSUF | col 6 | document-to-base64 | duct-tape | split-sentences ${lang,,}) \
+		<(pigz -cd $combined.$TMPSUF | col 5 | ./clean-text-patent.py | document-to-base64 | split-sentences en) \
+		<(pigz -cd $combined.$TMPSUF | col 7 | cat) \
+		<(pigz -cd $combined.$TMPSUF | col 5 | ./clean-text-patent.py | document-to-base64 | split-sentences en) \
+	| tee >(pigz -c > $bleualign_input.$TMPSUF) \
   | align \
   | pigz -c > $bleualign_output.$TMPSUF
 
+  mv $combined{.$TMPSUF,}
+  mv $bleualign_input{.$TMPSUF,}
   mv $bleualign_output{.$TMPSUF,}
 
 done

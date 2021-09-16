@@ -23,21 +23,32 @@ The `pipeline.sh` script loads `init.sh` which makes sure the necessary modules 
 Models can be put anywhere. Some are part of this repository (not yet sure whether that was a good idea, they're stored in lfs but still...) but any model that has a `translate.sh` style script will do.
 
 # Running
-Note that the `pipeline.sh` script will generate its output in your current work directory. So first `cd` to some folder you want the data to end up in.
+Make sure all files are in a file, e.g. input.txt:
 
-```bash
-path/to/pipeline.sh <path/to/translate.sh> [--any-translate-arguments] -- <files-to-process>
+```sh
+ls -1d /lustre/home/dc007/efarrow/europat/ocr_text_new/PL-????-ocr.tab >> input.txt
 ```
 
-So for example, to test or run on valhalla locally, do something like
-```bash
-./pipeline.sh models/es-en/translate.sh --cpu-threads 4 -- /data/europat/paired/es-en/ES-EN-*.tab
+Then for each language, queue translation. Don't forget the input file as the only argument. Array indices are line numbers in the input.txt file.
+
+```sh
+sbatch --array=153-170 -J translate-hr ./translate.slurm input.txt
 ```
 
-Or on CSD3, it would be more like:
-```bash
-cd /rds/project/rds-48gU72OtDNY/europat
-sbatch ~/src/europat-scripts/pipeline.sh models/es-en/translate.sh -- paired/es-en/ES-EN-2020-*.tab
+Fast-align classification is fast, so no need for an array job. Just schedule it and pass a bunch of files as arguments to the command.
+
+```sh
+sbatch -J fasttext-hr ./pipeline-fasttext.sh /lustre/home/dc007/efarrow/europat/ocr_text_new/PL-????-ocr.tab
 ```
 
+Alignment (also does combining with English text and stuff). Array parameter is the years. Don't forget the language as the only argument to align.slurm.
 
+```sh
+sbatch -J align-hr --array=1995-1998,2007-2019 ./align.slurm hr
+```
+
+Finally turning the whole thing into a tmx file. Arguments are the language first, and then all the years we have files for.
+
+```sh
+sbatch -j tmx-hr ./pipeline-tmx.slurm hr {1995..1998} {2007..2019}
+```

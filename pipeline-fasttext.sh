@@ -1,10 +1,12 @@
 #!/bin/bash
-#SBATCH --account t2-cs119-gpu
+#SBATCH --job-name=europat-fasttext
+#SBATCH --time=24:00:00
+#SBATCH --partition=standard
 #SBATCH --nodes 1
-#SBATCH --cpus-per-task 8
-#SBATCH --gres gpu:4
-#SBATCH --time 24:00:00
-#SBATCH --partition pascal
+#SBATCH --cpus-per-task 2
+#SBATCH --qos=standard
+#SBATCH --account=ec166-guest
+
 set -eou pipefail
 
 export PREFIX=$HOME/src/europat-scripts
