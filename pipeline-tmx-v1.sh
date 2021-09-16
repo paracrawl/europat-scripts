@@ -7,7 +7,7 @@ source $PREFIX/init.sh
 export THREADS=${SLURM_CPUS_ON_NODE:-4}
 export TMPSUF=${SLURM_JOB_ID:-$$}
 
-lang=$1
+export lang=$1
 shift
 
 english-first() {
@@ -42,7 +42,7 @@ ipc-metadata-files() {
 	find /beegfs/europat-metadata -name "EN-????-Metadata.tab" -o -name "${lang^^}-????-Metadata.tab"
 }
 
-export -f bicleaner-scores
+export -f english-first bicleaner-scores
 
 classified=${lang^^}.classified.gz
 fixed=${lang^^}.fixed.gz
@@ -78,14 +78,17 @@ else
 						| parallel -j $THREADS --pipe -k -l 60000 `# TODO is bifixer safe to run with parallel? It might be able to delete rows` \
 							bifixer --ignore_long --aggressive_dedup - - ${lang,,} en \
 						| ./filter-unicode.py \
-						| tee >(pigz -c > $fixed.$TMPSUF)
+						| tee >(pigz -c > $fixed.$TMPSUF) \
+						&& mv $fixed{.$TMPSUF,}
 					fi \
 					| ./paste-pipe.py bash -c bicleaner-scores `# 6 + 1 columns: 2 ids + 2 texts + bifixer-hash + bifixer-rank + bicleaner-score` \
-					| tee >(pigz -c > $classified.$TMPSUF)
+					| tee >(pigz -c > $classified.$TMPSUF) \
+					&& mv $classified{.$TMPSUF,}
 				fi \
 				| filter-by-score 0.05 \
 				| filter-by-hash \
-				| tee >(pigz -c > $filtered.$TMPSUF)
+				| tee >(pigz -c > $filtered.$TMPSUF) \
+				&& mv $filtered{.$TMPSUF,}
 			fi \
 			| ./paste-pipe.py ./elrc-info.py 3 4 `# adds 8th to 13th column: ratio + 2 token counts + 2 info col + info general` \
 			| src/tmxutil/tmxutil.py --verbose \
@@ -94,22 +97,19 @@ else
 				--input-columns source-document-1 source-document-2 text-1 text-2 bifixer-hash bifixer-rank score-bicleaner ratio tokenCount-1 tokenCount-2 info-1 info-2 info \
 				--ipc $(ipc-metadata-files) \
 				--ipc-group ipc-groups.tab \
-			| tee >(pigz -c > $tmx.$TMPSUF) 
+			| tee >(pigz -c > $tmx.$TMPSUF) \
+			&& mv $tmx{.$TMPSUF,}
 		fi \
 		| src/tmxutil/tmxutil.py \
 			--input-format tmx \
 			--output-format tab \
 			--output-languages ${lang,,} en \
 		| cut -d$'\t' -f3-4 \
-		| tee >(pigz -c > $txt.$TMPSUF)
+		| tee >(pigz -c > $txt.$TMPSUF) \
+		&& mv $txt{.$TMPSUF,}
 	fi \
 	| cut -d$'\t' -f1 \
 	| wc -wl \
-	| tee $stats.$TMPSUF
+	| tee $stats.$TMPSUF \
+	&& mv $stats{.$TMPSUF,}
 fi
-
-for var in classified filtered fixed tmx txt stats; do
-	if [ -f ${!var}.$TMPSUF ]; then
-		mv ${!var}{.$TMPSUF,}
-	fi
-done
