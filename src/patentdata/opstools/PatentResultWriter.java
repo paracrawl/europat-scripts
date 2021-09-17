@@ -316,7 +316,7 @@ public class PatentResultWriter {
     }
 
     private File getMetadataFile() {
-        String fileName = String.join("-", countryCode, year, "meta") + ".tab";
+        String fileName = String.join("-", countryCode, year, "Metadata") + ".tab";
         return new File(resultDir, fileName);
     }
 
@@ -451,19 +451,19 @@ public class PatentResultWriter {
 
     private static String formatPatentMetadata(PatentInfo p) {
         List<String> values = new ArrayList<>();
-        values.add(p.getDocdbId());
+        values.add(formatDocId(p.getDocdbId()));
         values.add(p.getDate());
         values.add(""); // application ID
         values.add(""); // application date
         values.add(p.getCountry());
-        values.add(formatIpcCodes(p.getDocdbId(), p.getIpcLabels()));
+        values.add(formatIpcCodes(p.getIpcLabels(), p.getDocdbId()));
         return String.join("\t", values);
     }
 
-    private static String formatIpcCodes(String docId, List<String> rawCodes) {
+    private static String formatIpcCodes(List<String> rawCodes, String docId) {
         List<String> codes = new ArrayList<>();
         for (String code: rawCodes) {
-            codes.add(formatIpcCode(docId, code));
+            codes.add(formatIpcCode(code, docId));
         }
         return String.join(",", codes);
     }
@@ -474,7 +474,7 @@ public class PatentResultWriter {
     // Shortened IPC codes are also valid
     private static final Pattern ipcShort = Pattern.compile("^([A-H][0-9]{2}[A-Z])([0-9 ]{4}) {7}.{35}$");
 
-    private static String formatIpcCode(String docId, String text) {
+    private static String formatIpcCode(String text, String docId) {
         Matcher m = ipcStandard.matcher(text);
         if (! m.matches()) {
             m = ipcShort.matcher(text);
