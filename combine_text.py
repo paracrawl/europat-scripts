@@ -11,7 +11,6 @@ from pathlib import Path
 
 EARLIEST_YEAR = 1800
 DEFAULT_START_YEAR = 1980
-DEFAULT_COLLAPSE_CASE = False
 
 # patent parts in order
 FILE_TYPES = OrderedDict()
@@ -98,12 +97,12 @@ def get_files_by_language(args, year):
         file_pattern = get_file_pattern(args, year)
         for p in Path(input_dir).glob(file_pattern):
             lang, _, suffix = p.stem.split('-')[-3:]
-            if collapse_case(args):
-                # ignore case differences in language names
-                lang = lang.upper()
             filetype = get_file_type(suffix)
             if filetype is not None:
                 langs[lang][filetype] = str(p)
+                # also combine text with case differences in language names
+                if lang.upper() == args.country:
+                    langs[''][filetype] = str(p)
     return langs
 
 def get_input_dir(args, year):
@@ -139,12 +138,13 @@ def get_output_dir(args, year):
     return output_dir
 
 def get_output_filename(args, lang, year):
+    lang_year = f'{lang}-{year}' if lang else year
     if args.epo:
-        output_filename = 'EP-{}-{}-text.tab'.format(lang, year)
+        output_filename = 'EP-{}-text.tab'.format(lang_year)
     elif args.us:
-        output_filename = 'USPTO-{}-{}-text.tab'.format(lang, year)
+        output_filename = 'USPTO-{}-text.tab'.format(lang_year)
     else:
-        output_filename = '{}-{}-{}-text.tab'.format(args.country, lang, year)
+        output_filename = '{}-{}-text.tab'.format(args.country, lang_year)
     return output_filename
 
 def read_data(filename):
@@ -154,14 +154,6 @@ def write_data(df, filename):
     df = df[[ID_FIELD, DATE_FIELD, CONTENT_FIELD]]
     with open(filename, 'w') as f:
         df.to_csv(f, sep='\t', quoting=csv.QUOTE_NONE, header=False, index=False)
-
-def collapse_case(args):
-    collapse_case = DEFAULT_COLLAPSE_CASE
-    if args.i:
-        collapse_case = True
-    elif args.c:
-        collapse_case = False
-    return collapse_case
 
 def check_country(value):
     if len(value) == 2 and value.isalpha():
@@ -191,9 +183,6 @@ def main():
     parser.add_argument('country', metavar='country-code', help='Country code', type=check_country)
     parser.add_argument('start', metavar='start-year', nargs='?', help='First year of patents to process', type=check_year)
     parser.add_argument('end', metavar='end-year', nargs='?', help='Last year of patents to process', type=check_year)
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('-i', help='Use case-insensitive language matching', action='store_true')
-    group.add_argument('-c', help='Use case-sensitive language matching', action='store_false')
     parser.add_argument('--epo', help='EPO data', action='store_true')
     parser.add_argument('--us', '--uspto', help='USPTO data', action='store_true')
     parser.add_argument('--outdir', metavar='output-dir', help='Output directory', type=check_dir_path)
