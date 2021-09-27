@@ -8,4 +8,4 @@
 #SBATCH --account=ec166-guest
 set -euo pipefail
 
-./pipeline-tmx-v1.sh $*
+./pipeline-tmx.sh $*

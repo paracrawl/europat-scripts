@@ -25,3 +25,6 @@
 [submodule "src/kenlm"]
 	path = src/kenlm
 	url = https://github.com/kpu/kenlm.git
+[submodule "src/pd3f-core"]
+	path = src/pd3f-core
+	url = git@github.com:jelmervdl/pd3f-core.git

@@ -1,0 +1,16 @@
+#!/bin/bash
+is-installed() {
+	python-package-exists pd3f
+}
+
+depends-on() {
+	echo python
+}
+
+install() {
+	pushd pd3f-core
+
+	python -m pip install .
+
+	popd
+}
