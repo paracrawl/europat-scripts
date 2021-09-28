@@ -1,0 +1,15 @@
+#!/bin/bash
+
+install() {
+	test -d pypy3.7-v7.3.5-linux64 || curl -L 'https://downloads.python.org/pypy/pypy3.7-v7.3.5-linux64.tar.bz2' | tar -xj
+	ln -s $PREFIX/src/pypy3.7-v7.3.5-linux64/bin/pypy $PREFIX/bin/pypy
+}
+
+depends() {
+	echo env
+}
+
+is-installed() {
+	test -x $PREFIX/bin/pypy
+}
+
