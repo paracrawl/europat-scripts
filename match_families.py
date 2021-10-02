@@ -14,34 +14,30 @@ ID_FIELD = 'id'
 FAMILY_FIELD = 'family'
 
 def match_families(args):
+    print(f'Reading {EN_LANGUAGE} patents from {args.en}')
     en_patents = read_data(args.en, EN_LANGUAGE)
     if args.verbose:
-        print(f'Read {len(en_patents)} {EN_LANGUAGE} patents')
-        # print(' ', en_patents.columns.tolist())
+        print(f'  Read {len(en_patents)} {EN_LANGUAGE} patents')
     for year in range(args.start, args.end+1):
+        session = f'{args.country}-{year}'
+        yeardir = f'{args.datadir}/{session}'
+        infofile = f'{yeardir}/{session}-info.txt'
+        language = args.country.lower()
+        patents = read_data(infofile, language)
+        if len(patents) == 0:
+            continue
         if args.verbose:
-            print(f'Processing {year}')
-        match_families_by_year(args, year, en_patents)
-
-def match_families_by_year(args, year, en_patents):
-    session = f'{args.country}-{year}'
-    yeardir = f'{args.datadir}/{session}'
-    infofile = f'{yeardir}/{session}-info.txt'
-    language = args.country.lower()
-    patents = read_data(infofile, language)
-    if args.verbose:
-        print(f'Read {len(patents)} {language} patents for {year}')
-        # print(' ', patents.columns.tolist())
-    matches = patents.join(en_patents, how='inner', rsuffix=EN_LANGUAGE)
-    if args.verbose:
-        print(f'Found {len(matches)} {language} matches for {year}')
-        # print(' ', matches.columns.tolist())
-    if len(matches) > 0:
-        output_dir = args.outdir if args.outdir else yeardir
-        output_filename = f'EN-{args.country}-{year}-family.tab'
-        write_data(matches, f'{output_dir}/{output_filename}', language)
+            print(f'Read {len(patents)} patents for {session}')
+        matches = patents.join(en_patents, how='inner', rsuffix=EN_LANGUAGE)
+        if len(matches) == 0:
+            print(f'  No matches for {session}')
+            continue
         if args.verbose:
-            print(f'  Saved {output_filename} in {output_dir}')
+            print(f'  Found {len(matches)} matches for {session}')
+        output_filename = f'{args.country}-EN-{year}-family.tab'
+        write_data(matches, f'{args.outdir}/{output_filename}', language)
+        if args.verbose:
+            print(f'  Saved {output_filename} in {args.outdir}')
 
 def write_data(df, filename, language):
     # make sure the fields are in order
@@ -82,7 +78,8 @@ def check_dir_path(value):
 def main():
     startyear = DEFAULT_START_YEAR
     endyear = datetime.datetime.now().year-1
-    datadir = os.environ.get('PATENT_DATA_DIR', '/data/patents/pdfpatents/')
+    datadir = os.environ.get('PATENT_DATA_DIR', '/data/patents/pdfpatents')
+    outdir = os.environ.get('PATENT_FAMILY_DIR', f'{datadir}/families')
     message = f'Match patent families for patents with the given country code. A single year, or both a start and end year (inclusive) can be given. If no years are specified, the range {startyear}-{endyear} will be used.'
 
     parser = argparse.ArgumentParser(description=message)
@@ -91,7 +88,7 @@ def main():
     parser.add_argument('start', metavar='start-year', nargs='?', help='First year of patents to process', type=check_year)
     parser.add_argument('end', metavar='end-year', nargs='?', help='Last year of patents to process', type=check_year)
     parser.add_argument('--datadir', help='Directory with data files to process', default=datadir)
-    parser.add_argument('--outdir', metavar='output-dir', help='Output directory', type=check_dir_path)
+    parser.add_argument('--outdir', metavar='output-dir', help='Output directory', default=outdir, type=check_dir_path)
     parser.add_argument('-v', '--verbose', help='Verbose output', action='store_true')
     args = parser.parse_args()
 
