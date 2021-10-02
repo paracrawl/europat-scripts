@@ -29,11 +29,10 @@ def match_families(args):
         if args.verbose:
             print(f'Read {len(patents)} patents for {session}')
         matches = patents.join(en_patents, how='inner', rsuffix=EN_LANGUAGE)
-        if len(matches) == 0:
-            print(f'  No matches for {session}')
-            continue
         if args.verbose:
             print(f'  Found {len(matches)} matches for {session}')
+        if len(matches) == 0:
+            continue
         output_filename = f'{args.country}-EN-{year}-family.tab'
         write_data(matches, f'{args.outdir}/{output_filename}', language)
         if args.verbose:
