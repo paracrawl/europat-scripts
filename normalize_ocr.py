@@ -86,7 +86,7 @@ def check_dir_path(value):
 
 def main():
     startyear = DEFAULT_START_YEAR
-    endyear = datetime.datetime.now().year-1
+    endyear = datetime.datetime.now().year
     datadir = os.environ.get('PATENT_DATA_DIR', '/data/patents/pdfpatents/')
     message = 'Create a file in normalized form from separate OCR output files. Combine files for all patents with the given country code and year. A single year, or both a start and end year (inclusive) can be given. If no years are specified, the range {}-{} will be used.'.format(startyear, endyear)
 

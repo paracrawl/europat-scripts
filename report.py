@@ -272,7 +272,7 @@ def check_limit(value):
 
 def main():
     startyear = DEFAULT_START_YEAR
-    endyear = datetime.datetime.now().year-1
+    endyear = datetime.datetime.now().year
     limit = os.environ.get('PDF_PAGE_LIMIT', 25)
     infodir = os.environ.get('INFODIR', '/fs/loki0/data/pdfpatents')
     message = 'Print patent counts for the given country code. A single year, or both a start and end year (inclusive) can be given. If no years are specified, the range {}-{} will be used. Patents with too many PDF pages will be ignored. The page limit is configurable (default {}).'.format(startyear, endyear, limit)

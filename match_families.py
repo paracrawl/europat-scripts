@@ -76,7 +76,7 @@ def check_dir_path(value):
 
 def main():
     startyear = DEFAULT_START_YEAR
-    endyear = datetime.datetime.now().year-1
+    endyear = datetime.datetime.now().year
     datadir = os.environ.get('PATENT_DATA_DIR', '/data/patents/pdfpatents')
     outdir = os.environ.get('PATENT_FAMILY_DIR', f'{datadir}/families')
     message = f'Match patent families for patents with the given country code. A single year, or both a start and end year (inclusive) can be given. If no years are specified, the range {startyear}-{endyear} will be used.'
