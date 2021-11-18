@@ -20,6 +20,7 @@ PAGES = 'pages'
 COUNTED = 'counted'
 MATCHED = 'matched'
 WANTED = 'wanted'
+ANY_TEXT = 'any text'
 ALL_TEXT = 'all text'
 DOWNLOADED = 'downloaded'
 INCOMPLETE = 'incomplete'
@@ -72,6 +73,7 @@ def print_counts(args, result, text_results, label):
         matched_val = '?' if search_incomplete or incomplete[t] else matched[t]
         counted_val = '?' if incomplete[t] else counted[t]
         print('{:>7} / {:<6} {} have wanted PDFs'.format(matched_val, counted_val, t))
+    print('{:>7} / {:<6} patents have any text in {}'.format(counted[ANY_TEXT], counted[ENTRIES], args.country))
     print('{:>7} / {:<6} patents have all text in {}'.format(counted[ALL_TEXT], counted[ENTRIES], args.country))
     num_langs = len(text_results)
     for lang in sorted(text_results):
@@ -163,12 +165,15 @@ def calculate_counts(args, year):
             found[ABSTRACTS] = 1 * args.country in a
             found[CLAIMS] = 1 * args.country in c
             found[DESCRIPTIONS] = 1 * args.country in d
+            any_text_main_lang = 1 in found.values()
             all_text_main_lang = not 0 in found.values()
             for f in FILE_TYPES:
                 counted[f] += found[f]
                 if text is not None:
                     if found[f] and docid not in text[f]:
                         text[docid].add(f)
+            if any_text_main_lang:
+                counted[ANY_TEXT] += 1
             if all_text_main_lang:
                 counted[ALL_TEXT] += 1
             pdf = 1 * args.country in p
