@@ -58,17 +58,17 @@ preprocess() {
 }
 
 split-sentences() {
-	src/preprocess/moses/ems/support/split-sentences.perl \
+	$PREFIX/src/preprocess/moses/ems/support/split-sentences.perl \
 		-d \
 		-b \
 		-l $1 \
-		-p nonbreaking_prefixes/nonbreaking_prefix.$1 \
+		-p $PREFIX/nonbreaking_prefixes/nonbreaking_prefix.$1 \
 		-n \
 		-k
 }
 
 duct-tape() {
-	python3 ./duct-tape.py --base64
+	python3 $PREFIX/duct-tape.py --base64
 }
 
 lowercase() {
@@ -96,7 +96,7 @@ for file in $*; do
 		<(cat $file | col 1) \
 		- \
 	| pigz \
-	> $(basename $file .tab)-en.tab.gz.$TMPSUF \
-	&& mv $(basename $file .tab)-en.tab.gz{.$TMPSUF,}
+	> text-en/$(basename $file .tab)-en.tab.gz.$TMPSUF \
+	&& mv text-en/$(basename $file .tab)-en.tab.gz{.$TMPSUF,}
 done
 

@@ -6,6 +6,7 @@ if [[ "$(hostname -A)" =~ "epcc.ed.ac.uk" ]]; then
 		intel-tools-19 \
 		nvidia/cuda-11.2 \
 		nvidia/mathlibs-11.2 \
+		nvidia/cudnn/8.2.1-cuda-11.2 \
 		java/jdk-14.0.1
 fi
 

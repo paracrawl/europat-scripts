@@ -32,12 +32,12 @@ for file in $*; do
 	| sed -r 's/<br\/?>|<\/p><p>/ /g' \
 	| sed -r 's/<\/?p>//g' \
 	| sed -r 's/@TAB@/ /g' \
-	| fasttext predict lid.176.bin - 3 \
+	| fasttext predict $PREFIX/lid.176.bin - 3 \
 	| paste \
 		<(cat $file | col 1) \
 		- \
 	| pigz \
-	> $(basename $file .tab).labels.gz.$TMPSUF \
-	&& mv $(basename $file .tab).labels.gz{.$TMPSUF,}
+	> labels/$(basename $file .tab).labels.gz.$TMPSUF \
+	&& mv labels/$(basename $file .tab).labels.gz{.$TMPSUF,}
 done
 

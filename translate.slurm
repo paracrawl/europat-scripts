@@ -7,11 +7,10 @@
 #SBATCH --account=ec166-guest
 set -euo pipefail
 
+PREFIX=$HOME/src/europat-scripts
 ENTRY=$(awk "NR == $SLURM_ARRAY_TASK_ID" < $1)
 BASENAME=${ENTRY##*/}
 L1=${BASENAME%%-*}
 shift
 
-./pipeline-monolingual.sh ./translate.sh ${L1,,} -- $ENTRY
-
-
+$PREFIX/pipeline-monolingual.sh $PREFIX/translate.sh ${L1,,} -- $ENTRY

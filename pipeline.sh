@@ -39,17 +39,17 @@ document-to-base64() {
 }
 
 split-sentences() {
-	src/preprocess/moses/ems/support/split-sentences.perl \
+	$PREFIX/src/preprocess/moses/ems/support/split-sentences.perl \
 		-d \
 		-b \
 		-l $1 \
-		-p nonbreaking_prefixes/nonbreaking_prefix.$1 \
+		-p $PREFIX/nonbreaking_prefixes/nonbreaking_prefix.$1 \
 		-n \
 		-k
 }
 
 duct-tape() {
-	python3 ./duct-tape.py --base64
+	python3 $PREFIX/duct-tape.py --base64
 }
 
 lowercase() {
@@ -85,15 +85,15 @@ for year in $*; do
 	# 7: translated text
 	# 8: labels (deleted then)
 	
-	ocr_text=/lustre/home/dc007/efarrow/europat/ocr_text_new/${lang^^}-${year}-ocr.tab
-	ocr_labels=./${lang^^}-${year}-ocr.labels.gz
-	translated_text=./${lang^^}-${year}-ocr-en.tab.gz
-	combined=./${lang^^}-${year}.tab.gz
-	bleualign_input=./${lang^^}-${year}-bleualign-input.tab.gz
-	bleualign_output=./${lang^^}-${year}-bleualign-output.tab.gz
+	ocr_text=$(compgen -G text/${lang^^}-${year}*.tab) # kleene star because suffixes
+	ocr_labels=$(compgen -G labels/${lang^^}-${year}*.labels.gz)
+	translated_text=$(compgen -G text-en/${lang^^}-${year}*-en.tab.gz)
+	combined=combined/${lang^^}-${year}.tab.gz
+	bleualign_input=bleualign-input/${lang^^}-${year}-bleualign-input.tab.gz
+	bleualign_output=bleualign-output/${lang^^}-${year}-bleualign-output.tab.gz
 
-	cat /beegfs/europat-family-pairs/${lang^^}-EN-${year}-ID.tab \
-	| ./join-documents.py ./patents-index-cirrus.gz \
+	cat families/${lang^^}-EN-${year}-*.tab families/${lang^^}-EN-more-pairs.tab \
+	| $PREFIX/join-documents.py $PREFIX/patents-index-cirrus.gz \
 		$ocr_text:3 \
 		$translated_text:2 \
 		$ocr_labels:2 \
@@ -105,9 +105,9 @@ for year in $*; do
 		<(pigz -cd $combined.$TMPSUF | col 1) \
 		<(pigz -cd $combined.$TMPSUF | col 3) \
 		<(pigz -cd $combined.$TMPSUF | col 6 | document-to-base64 | duct-tape | split-sentences ${lang,,}) \
-		<(pigz -cd $combined.$TMPSUF | col 5 | ./clean-text-patent.py | document-to-base64 | split-sentences en) \
+		<(pigz -cd $combined.$TMPSUF | col 5 | $PREFIX/clean-text-patent.py | document-to-base64 | split-sentences en) \
 		<(pigz -cd $combined.$TMPSUF | col 7 | cat) \
-		<(pigz -cd $combined.$TMPSUF | col 5 | ./clean-text-patent.py | document-to-base64 | split-sentences en) \
+		<(pigz -cd $combined.$TMPSUF | col 5 | $PREFIX/clean-text-patent.py | document-to-base64 | split-sentences en) \
 	| tee >(pigz -c > $bleualign_input.$TMPSUF) \
   | align \
   | pigz -c > $bleualign_output.$TMPSUF

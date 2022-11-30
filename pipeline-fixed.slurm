@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=europat-align
+#SBATCH --job-name=europat-fixed
 #SBATCH --time=24:00:00
 #SBATCH --partition=standard
 #SBATCH --nodes 1
@@ -8,7 +8,4 @@
 #SBATCH --account=ec166-guest
 set -euo pipefail
 
-export PYTHONUNBUFFERED=1
-$HOME/src/europat-scripts/pipeline.sh $1 $SLURM_ARRAY_TASK_ID
-
-
+$HOME/src/europat-scripts/pipeline-fixed.sh $*

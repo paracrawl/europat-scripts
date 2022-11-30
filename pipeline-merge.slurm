@@ -1,4 +1,11 @@
 #!/bin/bash
+#SBATCH --job-name=europat-tmx
+#SBATCH --time=24:00:00
+#SBATCH --partition=standard
+#SBATCH --nodes 1
+#SBATCH --cpus-per-task 8
+#SBATCH --qos=standard
+#SBATCH --account=ec166-guest
 set -euo pipefail
 
 export PREFIX=$HOME/src/europat-scripts
@@ -14,49 +21,24 @@ THRESHOLD=0.5 # Was 0.05
 export lang=$1
 shift
 
-english-first() {
-	awk -F"\t" 'BEGIN { OFS="\t" }{ print $2, $1, $4, $3 }'
-}
-
-bleualign-output() {
-	for year in $*; do
-		pigz -cd bleualign-output/${lang^^}-${year}-bleualign-output.tab.gz
-	done
-
-	# Also include all the data from the previous release
-	pigz -cd /beegfs/europat-release-2/${lang,,}-en.raw.gz
-}
-
-bicleaner-scores() {
-	english-first \
-	| parallel -j $THREADS --pipe -k -l 30000 \
-		bicleaner-classify-lite --score_only -q - - $PREFIX/bicleaner-models/en-${lang,,}/en-${lang,,}.yaml
-}
-
-bicleaner-ai-scores() {
-	bicleaner-ai-classify \
-		--score_only \
-		--scol 4 --tcol 3 \
-		--processes $THREADS \
-		--disable_minimal_length \
-		--disable_porn_removal \
-		- - $PREFIX/bicleaner-ai-models/en-${lang,,}/metadata.yaml
-}
-
 filter-by-score() {
 	awk -F"\t" "\$7 >= $1"
 }
 
 filter-by-hash() {
-	LC_ALL=C sort -S8G -t$'\t' -k5,5 -k6,6nr \
+	LC_ALL=C sort -S2G -t$'\t' -k5,5 -k6,6nr \
 	| awk -F$'\t' '$5 == last { next } { last=$5; print; }'
+}
+
+classified-files() {
+	for folder in "$@"; do
+		echo "$folder/${lang^^}.classified.gz"
+	done
 }
 
 ipc-metadata-files() {
 	find /beegfs/europat-metadata -name "EN-????-Metadata.tab" -o -name "${lang^^}-????-Metadata.tab"
 }
-
-export -f english-first bicleaner-scores bicleaner-ai-scores
 
 classified=${lang^^}.classified.gz
 fixed=${lang^^}.fixed.gz
@@ -83,20 +65,8 @@ else
 				if [ -f $classified ]; then
 					pigz -cd $classified
 				else
-					echo "Creating classified" >&2
-					if test -f $fixed; then
-						pigz -cd $fixed
-					else
-						echo "Creating fixed" >&2
-						bleualign-output $* \
-						| cut -d$'\t' -f 1-4 \
-						| parallel -j $THREADS --pipe -k -l 60000 `# TODO is bifixer safe to run with parallel? It might be able to delete rows` \
-							bifixer --ignore_long --aggressive_dedup - - ${lang,,} en \
-						| $PREFIX/filter-unicode.py \
-						| tee >(pigz -c > $fixed.$TMPSUF) \
-						&& mv $fixed{.$TMPSUF,}
-					fi \
-					| $PREFIX/paste-pipe.py bash -c bicleaner-scores `# 6 + 1 columns: 2 ids + 2 texts + bifixer-hash + bifixer-rank + bicleaner-score` \
+					echo "Creating merged classified" >&2
+					pigz -cd $(classified-files "$@") \
 					| tee >(pigz -c > $classified.$TMPSUF) \
 					&& mv $classified{.$TMPSUF,}
 				fi \

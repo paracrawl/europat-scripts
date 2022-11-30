@@ -8,4 +8,4 @@
 #SBATCH --account=ec166-guest
 set -euo pipefail
 
-./pipeline-tmx.sh $*
+$HOME/src/europat-scripts/pipeline-tmx.sh $*
